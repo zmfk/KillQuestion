@@ -1,0 +1,148 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 60px 0;
+  color: var(--muted);
+}
+
+.head {
+  text-align: center;
+  padding: 18px 0 8px;
+}
+
+.eyebrow {
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.score {
+  font-size: 64px;
+  line-height: 1.1;
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.score em {
+  font-style: normal;
+  font-size: 24px;
+  color: var(--muted);
+  letter-spacing: 0;
+  margin-left: 2px;
+}
+
+.grade {
+  font-size: 15px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.numbers {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.numbers strong {
+  color: var(--ink);
+  font-size: 15px;
+  margin-left: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wrongBox {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wrongBox h2 {
+  font-size: 14.5px;
+}
+
+.wrongList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.wrongList li {
+  display: flex;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  padding-bottom: 7px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.wrongList li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.wrongNo {
+  flex-shrink: 0;
+  color: var(--wrong);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.wrongStem {
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.resetZone {
+  text-align: center;
+  margin-top: 18px;
+}
+
+.resetBtn {
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.resetBtn:hover {
+  color: var(--wrong);
+}
+
+@media (max-width: 560px) {
+  .score {
+    font-size: 52px;
+  }
+  .actions .btn {
+    flex: 1;
+  }
+}

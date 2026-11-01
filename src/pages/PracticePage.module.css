@@ -1,0 +1,386 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 60px 0;
+  color: var(--muted);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.modeTag {
+  font-size: 12.5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.counter {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.clock {
+  margin-left: auto;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+.clockUrgent {
+  color: var(--wrong);
+  border-color: var(--wrong);
+}
+
+.progress {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.no {
+  font-size: 12.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.no em {
+  font-style: normal;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11.5px;
+}
+
+.topics {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.topic {
+  font-size: 11.5px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  color: var(--gold);
+}
+
+.starBtn {
+  margin-left: auto;
+  appearance: none;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.starred {
+  color: var(--gold);
+}
+
+.materialBox {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.materialToggle {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  align-self: flex-start;
+  color: var(--accent);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.material {
+  display: none;
+  background: var(--bg);
+  border-left: 3px solid var(--line);
+  padding: 12px 14px;
+  border-radius: 0 10px 10px 0;
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.75;
+  max-height: 320px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.materialOpen {
+  display: block;
+}
+
+.stem {
+  font-size: 17px;
+  line-height: 1.75;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+}
+
+.tip {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.option {
+  width: 100%;
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.13s ease, background 0.13s ease;
+}
+
+.option:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.option:disabled {
+  cursor: default;
+}
+
+.optionKey {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.optionText {
+  flex: 1;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+.optionPicked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.optionPicked .optionKey {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.optionRight {
+  border-color: var(--right);
+  background: var(--right-soft);
+}
+
+.optionRight .optionKey {
+  background: var(--right);
+  color: #fff;
+  border-color: var(--right);
+}
+
+.optionWrong {
+  border-color: var(--wrong);
+  background: var(--wrong-soft);
+}
+
+.optionWrong .optionKey {
+  background: var(--wrong);
+  color: #fff;
+  border-color: var(--wrong);
+}
+
+.optionMark {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--right);
+}
+
+.optionWrong .optionMark {
+  color: var(--wrong);
+}
+
+.fillArea {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fillRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fillIndex {
+  font-size: 12.5px;
+  color: var(--muted);
+  min-width: 52px;
+}
+
+.fillInput {
+  flex: 1;
+  min-width: 180px;
+}
+
+.fillOk,
+.fillMiss {
+  font-size: 12.5px;
+  width: 100%;
+  padding-left: 62px;
+}
+
+.fillOk {
+  color: var(--right);
+}
+
+.fillMiss {
+  color: var(--muted);
+}
+
+.essayArea {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.answerBox {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 13px 15px;
+  background: var(--bg);
+}
+
+.answerLabel {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.answerBox p {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
+}
+
+.verdict strong {
+  font-size: 14.5px;
+}
+
+.verdictOk {
+  background: var(--right-soft);
+  color: var(--right);
+}
+
+.verdictBad {
+  background: var(--wrong-soft);
+  color: var(--wrong);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.assessTip {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+@media (max-width: 600px) {
+  .card {
+    padding: 16px;
+  }
+  .stem {
+    font-size: 16px;
+  }
+  .actions .btn {
+    flex: 1;
+  }
+  .fillOk,
+  .fillMiss {
+    padding-left: 0;
+  }
+}

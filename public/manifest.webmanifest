@@ -1,0 +1,17 @@
+{
+  "name": "KillQuestion · 党校结业考试刷题",
+  "short_name": "KillQuestion",
+  "description": "党课题库刷题：重点刷题 + 大范围刷题，含填空、单选、多选、简答、论述，离线可用。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f6f2",
+  "theme_color": "#0e6b58",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

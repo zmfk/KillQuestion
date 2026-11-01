@@ -1,0 +1,104 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.head h1 {
+  font-size: 24px;
+  letter-spacing: -0.3px;
+}
+
+.head .hint {
+  margin-top: 6px;
+}
+
+.section {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.sectionHead {
+  width: 100%;
+  appearance: none;
+  border: none;
+  background: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  color: var(--ink);
+  text-align: left;
+}
+
+.sectionHead:hover {
+  background: var(--bg);
+}
+
+.sectionHead strong {
+  font-size: 14.5px;
+}
+
+.sectionMeta {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.chevron {
+  color: var(--muted);
+  font-size: 12px;
+  width: 12px;
+}
+
+.topicGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+  padding: 0 14px 14px;
+}
+
+.topicCard {
+  appearance: none;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.topicCard:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.topicCard:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.topicTitle {
+  font-size: 13.5px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.topicCount {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .topicGrid {
+    grid-template-columns: 1fr;
+  }
+}

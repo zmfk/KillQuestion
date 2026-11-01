@@ -1,0 +1,55 @@
+# 依赖
+node_modules/
+.pnpm-store/
+.npm-cache/
+
+# 构建产物
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# 测试与覆盖率
+coverage/
+playwright-report/
+test-results/
+
+# 本地环境与密钥（绝不允许提交）
+.env
+.env.*
+!.env.example
+.npmrc.local
+*.keystore
+*.jks
+*.p12
+*.pem
+*.key
+key.properties
+google-services.json
+
+# 原始资料：PDF 原件与从 PDF 提取的全文都不进仓库
+*.pdf
+input/
+data/
+
+# 题库数据：仓库里不保存任何题目内容，题库以本地文件导入
+KillQuestion-题库.json
+*.bank.json
+
+# 本地备份 / 导出
+backup/
+exports/
+*.backup.json
+
+# 截图与调试产物
+.shots/
+
+# 编辑器 / 系统
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+npm-debug.log*
