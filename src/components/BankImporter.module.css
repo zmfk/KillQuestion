@@ -22,14 +22,14 @@
   border-radius: 14px;
   padding: 28px 20px;
   text-align: center;
-  background: var(--panel);
+  background: var(--card);
   transition: border-color 0.15s, background 0.15s;
   cursor: pointer;
 }
 
 .dropActive {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  background: color-mix(in srgb, var(--accent) 8%, var(--card));
 }
 
 .dropMain {
@@ -60,7 +60,7 @@
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: var(--panel);
+  background: var(--card);
   font-size: 13px;
 }
 
@@ -92,8 +92,8 @@
 }
 
 .tagBad {
-  color: var(--danger, #e2685f);
-  border-color: color-mix(in srgb, var(--danger, #e2685f) 45%, transparent);
+  color: var(--wrong);
+  border-color: color-mix(in srgb, var(--wrong) 45%, transparent);
 }
 
 .preview {
@@ -101,7 +101,7 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 16px;
-  background: var(--panel);
+  background: var(--card);
 }
 
 .stats {
@@ -144,7 +144,7 @@
 
 .error {
   margin: 12px 0 0;
-  color: var(--danger, #e2685f);
+  color: var(--wrong);
   font-size: 13px;
   line-height: 1.7;
 }
@@ -172,4 +172,34 @@
 
 .paste textarea {
   margin-top: 10px;
+}
+
+/* 用 AI 转 JSON 那一段：步骤 + 可复制的提示词 */
+.steps {
+  margin: 12px 0 0;
+  padding-left: 22px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.promptHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 13px;
+}
+
+.promptMeta {
+  color: var(--muted);
+  margin-right: auto;
+}
+
+.promptHead + textarea {
+  margin-top: 8px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
 }

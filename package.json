@@ -1,7 +1,7 @@
 {
   "name": "killquestion",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "KillQuestion —— 本地优先的题库刷题应用：重点刷题 + 大范围刷题，离线可用",
   "type": "module",
   "license": "MIT",

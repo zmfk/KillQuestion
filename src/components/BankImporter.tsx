@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AI_PROMPT, AI_STEPS, AI_WARNINGS, promptStats } from '../core/aiPrompt';
 import { buildBank } from '../core/buildBank';
 import type { BuildOptions, BuildResult } from '../core/buildBank';
 import { extractText, fileKind } from '../core/extract';
@@ -174,6 +175,23 @@ export function BankImporter({ compact = false }: { compact?: boolean }) {
   const [progress, setProgress] = useState('');
   const [dragging, setDragging] = useState(false);
   const [pasted, setPasted] = useState('');
+  const [copied, setCopied] = useState(false);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+
+  /** 复制提示词：先用剪贴板 API，不行就退回「选中 + execCommand」 */
+  const copyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(AI_PROMPT);
+      setCopied(true);
+    } catch {
+      const node = promptRef.current;
+      if (!node) return;
+      node.focus();
+      node.select();
+      setCopied(document.execCommand('copy'));
+    }
+    window.setTimeout(() => setCopied(false), 2000);
+  };
 
   const { built, error } = useMemo(() => derive(slots, index), [slots, index]);
 
@@ -368,7 +386,40 @@ export function BankImporter({ compact = false }: { compact?: boolean }) {
       )}
 
       <details className={styles.paste}>
-        <summary>已经有一份题库 JSON？直接粘贴</summary>
+        <summary>读不出来 / 想更稳？用 AI 把资料转成 JSON</summary>
+        <p className={styles.hint}>
+          扫描件（整页是图片）、双栏乱序、表格排版的书，内置解析会失手。这种时候让大模型按固定格式吐
+          JSON，再粘回来就能导入——题库照样只存在你自己这台设备上。
+        </p>
+        <ol className={styles.steps}>
+          {AI_STEPS.map((s) => (
+            <li key={s}>{s}</li>
+          ))}
+        </ol>
+        <div className={styles.promptHead}>
+          <strong>给 AI 的提示词</strong>
+          <span className={styles.promptMeta}>{promptStats().chars} 字 · 末尾贴资料</span>
+          <button type="button" className="btn" onClick={() => void copyPrompt()}>
+            {copied ? '已复制 ✓' : '复制提示词'}
+          </button>
+        </div>
+        <textarea
+          ref={promptRef}
+          className="textarea"
+          rows={9}
+          readOnly
+          value={AI_PROMPT}
+          spellCheck={false}
+        />
+        <ul className={styles.warn}>
+          {AI_WARNINGS.map((w) => (
+            <li key={w}>{w}</li>
+          ))}
+        </ul>
+      </details>
+
+      <details className={styles.paste}>
+        <summary>AI 转出来的 JSON / 已有题库 JSON，粘在这里</summary>
         <textarea
           className="textarea"
           rows={5}
