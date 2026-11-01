@@ -27,21 +27,23 @@ key.properties
 google-services.json
 
 # 原始资料：PDF 原件与从 PDF 提取的全文都不进仓库
+# 注意：这里必须写「/input/」而不是「input/」——不带前导斜杠的规则会匹配任意层级，
+# 把 src/data/ 一起吃掉，导致 src/data/bank.ts 没能提交、CI 编译失败。
 *.pdf
-input/
-data/
+/input/
+/data/
 
 # 题库数据：仓库里不保存任何题目内容，题库以本地文件导入
-KillQuestion-题库.json
-*.bank.json
+/KillQuestion-题库.json
+/bank.json
 
 # 本地备份 / 导出
-backup/
-exports/
+/backup/
+/exports/
 *.backup.json
 
 # 截图与调试产物
-.shots/
+/.shots/
 
 # 编辑器 / 系统
 .vscode/*
@@ -53,3 +55,6 @@ Thumbs.db
 # 日志
 *.log
 npm-debug.log*
+
+# 本地 npm 镜像配置（不同地区的人可能用不同的源）
+/.npmrc
