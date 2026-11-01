@@ -146,6 +146,32 @@ describe('groupTopics', () => {
   });
 });
 
+describe('判断题', () => {
+  const judge = q({
+    id: 'QJ',
+    type: 'judge',
+    no: 1,
+    section: 'judge',
+    sectionLabel: '判断题',
+    stem: '示例判断命题是否成立。',
+    answer: ['正确'],
+    answerText: '正确',
+  });
+
+  it('答案行给「正确 / 错误」，√ × 也归一化', () => {
+    expect(answerLine(judge)).toBe('正确');
+    expect(answerLine({ ...judge, answer: ['×'] })).toBe('错误');
+    expect(answerLine({ ...judge, answer: [], answerText: '对' })).toBe('正确');
+    expect(answerLine({ ...judge, answer: [], answerText: '' })).toBe('（原文未给答案）');
+  });
+
+  it('排在选择与简答之间', () => {
+    const groups = groupQuestions([QUESTIONS[2], judge, QUESTIONS[4]]);
+    expect(groups.map((g) => g.section)).toEqual(['choice', 'judge', 'short']);
+    expect(groups[1].title).toBe('判断题');
+  });
+});
+
 describe('answerLine / correctOptionText', () => {
   it('单选题给「字母 + 选项全文」', () => {
     expect(correctOptionText(QUESTIONS[2])).toBe('B. 乙');

@@ -10,6 +10,7 @@ const TYPE_FILTERS: Array<{ key: QuestionType | 'all'; label: string }> = [
   { key: 'all', label: '全部' },
   { key: 'single', label: '单选' },
   { key: 'multi', label: '多选' },
+  { key: 'judge', label: '判断' },
   { key: 'fill', label: '填空' },
   { key: 'short', label: '简答' },
   { key: 'essay', label: '论述' },

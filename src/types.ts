@@ -1,6 +1,6 @@
 // 领域类型。题库由用户在本机导入（不进仓库、不进构建产物），用户数据只有作答记录与进度。
 
-export type QuestionType = 'single' | 'multi' | 'fill' | 'short' | 'essay';
+export type QuestionType = 'single' | 'multi' | 'judge' | 'fill' | 'short' | 'essay';
 
 export interface Option {
   key: string;
@@ -12,12 +12,12 @@ export interface Question {
   type: QuestionType;
   /** 原书题号（同一小节内从 1 开始） */
   no: number;
-  /** fill | choice | short | essay */
+  /** fill | choice | judge | short | essay */
   section: string;
   sectionLabel: string;
   stem: string;
   options?: Option[];
-  /** 选择题为选项字母；填空为逐空答案；简答/论述为整段答案 */
+  /** 选择题为选项字母；判断题为「正确 / 错误」；填空为逐空答案；简答/论述为整段答案 */
   answer?: string[];
   answerText?: string;
   /** 填空题空位数量 */
@@ -62,7 +62,7 @@ export interface ModeInfo {
 export interface ResultItem {
   questionId: string;
   correct: boolean;
-  /** 选择题=字母；填空=逐空文本；简答/论述=自评 */
+  /** 选择题=字母；判断题=正确/错误；填空=逐空文本；简答/论述=自评 */
   picked: string[];
   at: number;
 }

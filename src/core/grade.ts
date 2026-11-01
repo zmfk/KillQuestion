@@ -1,6 +1,6 @@
 /**
- * 判分规则。选择题比字母集合；填空做归一化后逐空比对；
- * 简答/论述没有标准答案可自动判，交给用户自评（返回 null）。
+ * 判分规则。选择题比字母集合；判断题比「正确 / 错误」；
+ * 填空做归一化后逐空比对；简答/论述没有标准答案可自动判，交给用户自评（返回 null）。
  */
 import type { Question } from '../types';
 
@@ -57,6 +57,32 @@ export function splitAccepts(text: string): string[] {
     .filter((s) => s.length > 0);
 }
 
+/** 判断题的两种取值，UI 与答案都按这两个词存 */
+export const JUDGE_TRUE = '正确';
+export const JUDGE_FALSE = '错误';
+
+/** 判断题的各种写法归一化：√/对/是/T 都算「正确」，×/错/否/F 都算「错误」 */
+const JUDGE_TRUE_ALIASES = new Set(['正确', '对', '√', '✓', '是', 't', 'true', '1', 'a']);
+const JUDGE_FALSE_ALIASES = new Set(['错误', '错', '×', '✗', 'x', '否', 'f', 'false', '0', 'b']);
+
+export function normalizeJudge(input: string): string | null {
+  const s = normalizeFill(input);
+  if (s === '') return null;
+  if (JUDGE_TRUE_ALIASES.has(s)) return JUDGE_TRUE;
+  if (JUDGE_FALSE_ALIASES.has(s)) return JUDGE_FALSE;
+  return null;
+}
+
+/**
+ * 判断题：归一化后与标准答案比对。
+ * 答案本身读不懂（既不是「正确」也不是「错误」）就当判不出，交给上层按「无自动判分」处理。
+ */
+export function gradeJudge(question: Question, picked: readonly string[]): boolean {
+  const want = normalizeJudge(question.answer?.[0] ?? '');
+  if (want === null) return false;
+  return normalizeJudge(picked[0] ?? '') === want;
+}
+
 /**
  * 填空题：逐个空比对。空数与答案数不一致时，多的空按漏答算错。
  * 返回是否全对。
@@ -74,13 +100,17 @@ export function gradeFill(question: Question, inputs: readonly string[]): boolea
 }
 
 /**
- * 自动判分入口。简答、论述返回 null，表示「需要用户自评」。
+ * 自动判分入口。简答、论述返回 null，表示「需要用户自评」；
+ * 判断题答案读不懂时也返回 null（题干原文没给答案的情况），同样交给自评。
  */
 export function autoGrade(question: Question, picked: readonly string[]): boolean | null {
   switch (question.type) {
     case 'single':
     case 'multi':
       return gradeChoice(question.answer ?? [], picked);
+    case 'judge':
+      if (normalizeJudge(question.answer?.[0] ?? '') === null) return null;
+      return gradeJudge(question, picked);
     case 'fill':
       return gradeFill(question, picked);
     case 'short':

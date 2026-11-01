@@ -6,16 +6,19 @@
  *
  *   一、填空题   题干里留「（ ）」表示空位，答案行以「答：」开头
  *   二、选择题   选项 A. B. C. D.，答案行以「正确答案：」开头，多字母即多选
- *   三、简答题   「答：」后面整段就是答案
- *   四、论述题   【材料】+ 若干小问 +【答案】+ 分问答案
+ *   三、判断题   题干后接答案行，值认 √ / × / 对 / 错 / 正确 / 错误（附件 3 没有这一节，别的题库很常见）
+ *   四、简答题   「答：」后面整段就是答案
+ *   五、论述题   【材料】+ 若干小问 +【答案】+ 分问答案
  *
  * 排版造成的脏活（PDF 把答案挤到选项行尾、选项粘连、页眉页脚）都在这里吸收掉。
  */
+import { normalizeJudge } from './grade';
 import type { Question, QuestionType } from '../types';
 
 export const SECTION_LABEL: Record<string, string> = {
   fill: '填空题',
   choice: '选择题',
+  judge: '判断题',
   short: '简答题',
   essay: '论述题',
 };
@@ -27,12 +30,27 @@ const QNUM = /^(\d{1,3})(?![\d\s年届次月日%])(?:[.、．]\s*)?(.*)$/;
 const OPTION = /^([A-H])[.、．]\s*(.*)$/;
 const BIG_TITLE = /^[一二三四五六七八九十]+、/;
 
-const KNOWN_SECTIONS: Array<[string, string]> = [
-  ['fill', '一、填空题'],
-  ['choice', '二、选择题'],
-  ['short', '三、简答题'],
-  ['essay', '四、论述题'],
+/** 小节标题：「一、填空题」这种；序号可以是任意汉字序号，题型名按别名认 */
+const SECTION_HEADING = /^[一二三四五六七八九十]+[、.．]\s*(.+)$/;
+/** 题型别名 → 内部 key。判断题不在这几年的原书里，但别处题库很常见，一起认。 */
+const SECTION_ALIAS: Array<[string, string]> = [
+  ['填空题', 'fill'],
+  ['选择题', 'choice'],
+  ['单项选择题', 'choice'],
+  ['多项选择题', 'choice'],
+  ['判断题', 'judge'],
+  ['简答题', 'short'],
+  ['论述题', 'essay'],
 ];
+
+/** 「一、判断题」→ 'judge'；不是已知题型小节就返回 null */
+function sectionKeyOf(text: string): string | null {
+  const m = SECTION_HEADING.exec(text.trim());
+  if (!m) return null;
+  const name = m[1].trim();
+  const hit = SECTION_ALIAS.find(([alias]) => alias === name);
+  return hit ? hit[1] : null;
+}
 
 type Row = { page: number; text: string };
 
@@ -97,20 +115,19 @@ function findSections(rows: Row[]): Array<{ key: string; start: number }> {
   rows.forEach((row, i) => {
     const s = row.text;
     if (s.includes('....')) return; // 目录行
-    for (const [key, title] of KNOWN_SECTIONS) {
-      if (s === title && !seen.has(key)) {
-        seen.add(key);
-        hit.push({ key, start: i });
-      }
+    const key = sectionKeyOf(s);
+    if (key && !seen.has(key)) {
+      seen.add(key);
+      hit.push({ key, start: i });
     }
   });
   return hit.sort((a, b) => a.start - b.start);
 }
 
-/** 论述题之后的第一个「五、xxx」之类的大标题视为正文结束 */
+/** 最后一个已知题型小节之后，第一个「五、xxx」之类的大标题视为正文结束 */
 function findEnd(rows: Row[], from: number): number {
   for (let i = from + 1; i < rows.length; i += 1) {
-    if (BIG_TITLE.test(rows[i].text) && !KNOWN_SECTIONS.some(([, t]) => t === rows[i].text)) {
+    if (BIG_TITLE.test(rows[i].text) && sectionKeyOf(rows[i].text) === null) {
       return i;
     }
   }
@@ -174,10 +191,23 @@ function parseFill(no: number, page: number, lines: string[]): ParsedQuestion {
   const stem = joinText(stemLines);
   const answerText = joinText(ansLines).replace(/[。；;，]+$/, '');
   const blanks = (stem.match(/[（(]\s*[）)]/g) ?? []).length;
-  const parts = answerText
+  let parts = answerText
     .split(/[；;]/)
     .map((x) => x.trim())
     .filter(Boolean);
+  let finalAnswerText = answerText;
+  // 少数多空题答案用顿号/逗号串写（如「甲、乙」），只有拆分后恰好等于空数才拆，
+  // 避免误伤含顿号的单空答案。
+  if (parts.length === 1 && blanks > 1) {
+    const extra = answerText
+      .split(/[、，,]/)
+      .map((x) => x.trim())
+      .filter(Boolean);
+    if (extra.length === blanks) {
+      parts = extra;
+      finalAnswerText = parts.join('；');
+    }
+  }
   return {
     type: 'fill',
     no,
@@ -187,7 +217,7 @@ function parseFill(no: number, page: number, lines: string[]): ParsedQuestion {
     stem,
     blanks,
     answer: parts.length > 1 ? parts : [answerText],
-    answerText,
+    answerText: finalAnswerText,
   };
 }
 
@@ -270,6 +300,39 @@ function parseShort(no: number, page: number, lines: string[]): ParsedQuestion {
   };
 }
 
+/** 判断题整节：题干 + 答案行（认「答：」「答案：」「正确答案：」，值认 √/对/T、×/错/F） */
+function parseJudge(no: number, page: number, lines: string[]): ParsedQuestion {
+  const stemLines: string[] = [];
+  let rawAnswer = '';
+  let inAnswer = false;
+  for (const line of lines) {
+    const m = /^(?:答|答案|正确答案)\s*[：:]\s*(.*)$/.exec(line.trim());
+    if (!inAnswer && m) {
+      inAnswer = true;
+      rawAnswer = m[1].trim();
+      continue;
+    }
+    if (!inAnswer) stemLines.push(line);
+  }
+  const stem = joinText(stemLines);
+  // 有些版式把 √ / × 直接写在题干末尾的括号里
+  let answer = normalizeJudge(rawAnswer);
+  if (answer === null) {
+    const tail = /([√×✓✗对错])\s*[）)]\s*$/.exec(stem);
+    if (tail) answer = normalizeJudge(tail[1]);
+  }
+  return {
+    type: 'judge',
+    no,
+    page,
+    section: 'judge',
+    sectionLabel: SECTION_LABEL.judge,
+    stem,
+    answer: answer !== null ? [answer] : [],
+    answerText: answer ?? rawAnswer,
+  };
+}
+
 /** 论述题整节：材料 + 小问 + 【答案】+ 分问答案 */
 function parseEssaySection(rows: Row[], start: number, end: number): ParsedQuestion[] {
   const lines = rows.slice(start + 1, end).map((r) => r.text);
@@ -339,14 +402,23 @@ export function parseBankText(raw: string): ParseResult {
   const sections = findSections(rows);
   const warnings: string[] = [];
   const questions: ParsedQuestion[] = [];
-  const counters: Record<QuestionType, number> = { fill: 0, single: 0, multi: 0, short: 0, essay: 0 };
+  const counters: Record<QuestionType, number> = {
+    fill: 0,
+    single: 0,
+    multi: 0,
+    judge: 0,
+    short: 0,
+    essay: 0,
+  };
 
   if (sections.length === 0) {
     return {
       questions,
       counters,
       sections: [],
-      warnings: ['没找到「一、填空题 / 二、选择题 / 三、简答题 / 四、论述题」这类小节标题，这份文件可能不是题库。'],
+      warnings: [
+        '没找到「一、填空题 / 二、选择题 / 三、判断题 / 四、简答题 / 五、论述题」这类小节标题，这份文件可能不是题库。',
+      ],
     };
   }
 
@@ -361,7 +433,12 @@ export function parseBankText(raw: string): ParseResult {
       return;
     }
 
-    const ansRe = sec.key === 'choice' ? /^正确答案\s*[：:]/ : /^答\s*[：:]/;
+    const ansRe =
+      sec.key === 'choice'
+        ? /^正确答案\s*[：:]/
+        : sec.key === 'judge'
+          ? /^(?:答|答案|正确答案)\s*[：:]/
+          : /^答\s*[：:]/;
     const blocks = splitBlocks(rows, sec.start, end, ansRe);
     let expect = 1;
     for (const block of blocks) {
@@ -374,7 +451,9 @@ export function parseBankText(raw: string): ParseResult {
           ? parseFill(block.no, block.page, block.lines)
           : sec.key === 'choice'
             ? parseChoice(block.no, block.page, block.lines)
-            : parseShort(block.no, block.page, block.lines);
+            : sec.key === 'judge'
+              ? parseJudge(block.no, block.page, block.lines)
+              : parseShort(block.no, block.page, block.lines);
       if (!q.stem.trim()) {
         warnings.push(`${SECTION_LABEL[sec.key]} 第 ${block.no} 题没读到题干（第 ${block.page} 页），已跳过。`);
         continue;

@@ -173,7 +173,13 @@ export function rulesOf(topics: Topic[]): TopicRule[] {
 
 function questionText(q: Question): string {
   const parts = [q.stem, q.material ?? '', q.answerText ?? ''];
-  for (const o of q.options ?? []) parts.push(o.text);
+  // 只把「正确选项」的文字计入语料。选择题的干扰项经常塞着别的考点的专名词
+  // （问「最大政治优势」时 C 项写「坚持民主集中制」），把干扰项也算进来，
+  // 题目就会被错挂到那个考点上——这正是「词面挂靠」的来源。
+  const answers = new Set(q.answer ?? []);
+  for (const o of q.options ?? []) {
+    if (answers.has(o.key)) parts.push(o.text);
+  }
   return norm(parts.join(''));
 }
 

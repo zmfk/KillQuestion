@@ -35,6 +35,7 @@ const TYPE_LABEL: Record<string, string> = {
   fill: '填空',
   single: '单选',
   multi: '多选',
+  judge: '判断',
   short: '简答',
   essay: '论述',
 };

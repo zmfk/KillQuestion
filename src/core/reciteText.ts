@@ -8,6 +8,7 @@
  * 所以这里只做纯函数、不碰 DOM，页面上需要强调的地方（正确选项加粗）自己拿结构去渲染，
  * 文本里的答案行则由 answerLine 统一口径。
  */
+import { normalizeJudge } from './grade';
 import type { BankData, Question, Topic } from '../types';
 
 export interface ReciteOptions {
@@ -21,12 +22,13 @@ export interface ReciteOptions {
   now?: Date;
 }
 
-/** 题型在稿子里的先后：填空 → 选择 → 简答 → 论述，跟原书小节一致 */
-const SECTION_ORDER = ['fill', 'choice', 'short', 'essay'];
+/** 题型在稿子里的先后：填空 → 选择 → 判断 → 简答 → 论述，跟原书小节一致 */
+const SECTION_ORDER = ['fill', 'choice', 'judge', 'short', 'essay'];
 
 const SECTION_TITLE: Record<string, string> = {
   fill: '填空题',
   choice: '选择题',
+  judge: '判断题',
   short: '简答题',
   essay: '论述题',
 };
@@ -90,6 +92,13 @@ export function correctOptionText(q: Question): string {
 export function answerLine(q: Question): string {
   if (q.type === 'single' || q.type === 'multi') {
     return correctOptionText(q) || '（原文未给答案）';
+  }
+  if (q.type === 'judge') {
+    const fixed =
+      normalizeJudge(q.answer?.[0] ?? '') ??
+      normalizeJudge(q.answerText ?? '') ??
+      (q.answerText ?? '').trim();
+    return fixed || '（原文未给答案）';
   }
   if (q.type === 'fill') {
     const blanks = q.answer ?? [];

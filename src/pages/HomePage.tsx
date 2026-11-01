@@ -44,7 +44,7 @@ export function HomePage() {
         <p className={styles.eyebrow}>党校结业考试 · 题库</p>
         <h1 className={styles.title}>把整套题库刷穿</h1>
         <p className={styles.lead}>
-          全部 {total} 道题：填空、单选、多选、简答、论述。
+          全部 {total} 道题：填空、单选、多选、判断、简答、论述。
           {topicTotal > 0
             ? `划重点的 ${topicTotal} 个考点做了标注，想练哪块点哪块。`
             : '还没有划重点的标注——拖一份划重点进来，「重点刷题」才会亮。'}
@@ -102,7 +102,7 @@ export function HomePage() {
           <span className={styles.modeIcon}>☰</span>
           <span className={styles.modeBody}>
             <strong>顺序通刷</strong>
-            <small>按手册原顺序（填空→选择→简答→论述）从头过</small>
+            <small>按手册原顺序（填空→选择→判断→简答→论述）从头过</small>
           </span>
           <span className={styles.modeArrow}>→</span>
         </button>

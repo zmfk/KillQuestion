@@ -269,13 +269,23 @@
   color: var(--wrong);
 }
 
+.judgeRow {
+  display: flex;
+  gap: 10px;
+}
+
+/* 判断题就两个按钮，并排更省一次点击 */
+.judgeBtn {
+  flex: 1;
+  justify-content: center;
+  padding: 14px 13px;
+}
+
 .fillArea {
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.fillRow {
+}.fillRow {
   display: flex;
   align-items: center;
   gap: 10px;

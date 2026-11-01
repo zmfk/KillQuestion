@@ -161,6 +161,13 @@ def parse_fill(no, page, lines):
     # 空位:题干里的 （ ） / ( ) 占位
     blanks = len(re.findall(r"[（(]\s*[）)]", stem))
     parts = [x.strip() for x in re.split(r"[；;]", answer_text) if x.strip()]
+    # 少数多空题答案用顿号/逗号串写(如「全面深化改革、推进中国式现代化」),
+    # 只有拆分后恰好等于空数才拆,避免误伤含顿号的单空答案。
+    if len(parts) == 1 and blanks > 1:
+        extra = [x.strip() for x in re.split(r"[、，,]", answer_text) if x.strip()]
+        if len(extra) == blanks:
+            parts = extra
+            answer_text = "；".join(parts)
     return {
         "type": "fill",
         "stem": stem,

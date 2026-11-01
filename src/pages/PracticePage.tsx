@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ImportPanel } from '../components/ImportPanel';
+import { normalizeJudge, JUDGE_FALSE, JUDGE_TRUE } from '../core/grade';
 import { questionNoLabel, topicsOf, typeLabel } from '../data/bank';
 import { useQuiz } from '../store/quiz';
 import styles from './PracticePage.module.css';
@@ -77,6 +78,8 @@ export function PracticePage() {
   const remainingMs = session.endsAt ? session.endsAt - now : 0;
   const starred = stars.includes(current.id);
   const isChoice = current.type === 'single' || current.type === 'multi';
+  const isJudge = current.type === 'judge';
+  const judgeAnswer = isJudge ? normalizeJudge(current.answer?.[0] ?? '') : null;
   const isFill = current.type === 'fill';
   const isEssay = current.type === 'short' || current.type === 'essay';
 
@@ -161,6 +164,7 @@ export function PracticePage() {
         <h2 className={styles.stem}>{current.stem}</h2>
 
         {current.type === 'multi' && <p className={styles.tip}>多选题：选出所有正确项</p>}
+        {isJudge && <p className={styles.tip}>判断题：这句话说得对就选「正确」，不对选「错误」</p>}
 
         {isChoice && current.options && (
           <ul className={styles.options}>
@@ -191,6 +195,36 @@ export function PracticePage() {
               );
             })}
           </ul>
+        )}
+
+        {isJudge && (
+          <div className={styles.judgeRow}>
+            {[JUDGE_TRUE, JUDGE_FALSE].map((value) => {
+              const isPicked = picked.includes(value);
+              const showRight = submitted && judgeAnswer === value;
+              const showWrong = submitted && isPicked && judgeAnswer !== value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={submitted}
+                  onClick={() => togglePick(value)}
+                  className={[
+                    styles.option,
+                    styles.judgeBtn,
+                    isPicked ? styles.optionPicked : '',
+                    showRight ? styles.optionRight : '',
+                    showWrong ? styles.optionWrong : '',
+                  ].join(' ')}
+                >
+                  <span className={styles.optionKey}>{value === JUDGE_TRUE ? '✓' : '✗'}</span>
+                  <span className={styles.optionText}>{value}</span>
+                  {showRight && <span className={styles.optionMark}>✓</span>}
+                  {showWrong && <span className={styles.optionMark}>✗</span>}
+                </button>
+              );
+            })}
+          </div>
         )}
 
         {isFill && (
@@ -253,6 +287,20 @@ export function PracticePage() {
           </div>
         )}
 
+        {submitted && isJudge && judgeAnswer !== null && (
+          <div className={`${styles.verdict} ${lastCorrect ? styles.verdictOk : styles.verdictBad}`}>
+            <strong>{lastCorrect ? '答对了' : '答错了'}</strong>
+            <span>正确答案：{judgeAnswer}</span>
+          </div>
+        )}
+
+        {submitted && isJudge && judgeAnswer === null && (
+          <div className={styles.answerBox}>
+            <span className={styles.answerLabel}>参考答案</span>
+            <p>{current.answerText || '（原题未给答案）'}</p>
+          </div>
+        )}
+
         {submitted && isFill && lastCorrect !== null && (
           <div className={`${styles.verdict} ${lastCorrect ? styles.verdictOk : styles.verdictBad}`}>
             <strong>{lastCorrect ? '全对' : '有错'}</strong>
@@ -269,7 +317,7 @@ export function PracticePage() {
             type="button"
             className="btn btnPrimary"
             onClick={submit}
-            disabled={isChoice && picked.length === 0}
+            disabled={(isChoice || isJudge) && picked.length === 0}
           >
             {isEssay ? '对答案' : '提交答案'}
           </button>

@@ -9,8 +9,8 @@ import type { BankData, PracticeMode, Progress, Question, ResultItem, Session } 
 const PROGRESS_KEY = 'killquestion.progress.v1';
 const BANK_KEY = 'killquestion.bank.v1';
 const EXAM_MINUTES = 60;
-/** 考试卷按原卷结构配比抽题 */
-const EXAM_PLAN: Record<string, number> = { fill: 10, single: 20, multi: 1, short: 3, essay: 3 };
+/** 考试卷按原卷结构配比抽题（附件 3 的试题结构含判断题，分值未公布，按常见卷面配） */
+const EXAM_PLAN: Record<string, number> = { fill: 10, single: 20, multi: 1, judge: 10, short: 3, essay: 3 };
 
 function emptyProgress(): Progress {
   return { records: {}, stars: [], session: null, finishedSessions: 0, lastStudyAt: null };
@@ -33,7 +33,7 @@ function writeJson(key: string, value: unknown): void {
   }
 }
 
-const TYPE_ORDER: Record<string, number> = { fill: 0, single: 1, multi: 2, short: 3, essay: 4 };
+const TYPE_ORDER: Record<string, number> = { fill: 0, single: 1, multi: 2, judge: 3, short: 4, essay: 5 };
 
 export function modeLabel(mode: PracticeMode, topicTitle?: string): string {
   switch (mode) {
@@ -289,7 +289,8 @@ export const useQuiz = create<QuizState>((set, get) => {
     togglePick: (key) => {
       const { current, picked, submitted } = get();
       if (!current || submitted) return;
-      if (current.type === 'single') {
+      // 单选与判断题只能选一个
+      if (current.type === 'single' || current.type === 'judge') {
         set({ picked: [key] });
         return;
       }
@@ -305,7 +306,12 @@ export const useQuiz = create<QuizState>((set, get) => {
     submit: () => {
       const { current, picked, fillInputs, submitted } = get();
       if (!current || submitted) return;
-      if ((current.type === 'single' || current.type === 'multi') && picked.length === 0) return;
+      if (
+        (current.type === 'single' || current.type === 'multi' || current.type === 'judge') &&
+        picked.length === 0
+      ) {
+        return;
+      }
       if (current.type === 'fill' && fillInputs.every((v) => v.trim() === '')) return;
 
       const verdict = autoGrade(current, current.type === 'fill' ? fillInputs : picked);

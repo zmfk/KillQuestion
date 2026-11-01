@@ -1,3 +1,4 @@
+import { normalizeJudge } from '../core/grade';
 import type { BankData, Question, Topic } from '../types';
 
 /**
@@ -28,7 +29,7 @@ export function indexBank(data: BankData): BankIndex {
   };
 }
 
-const TYPES = new Set(['single', 'multi', 'fill', 'short', 'essay']);
+const TYPES = new Set(['single', 'multi', 'judge', 'fill', 'short', 'essay']);
 
 /** 导入前校验：结构不对就直接报错，别把半截数据写进本机。 */
 export function validateBank(raw: unknown): BankData {
@@ -47,6 +48,15 @@ export function validateBank(raw: unknown): BankData {
       throw new Error(`${q.id} 缺少题干`);
     }
     if (!Array.isArray(q.topicIds)) q.topicIds = [];
+    // 判断题的答案写法很杂（√ / 对 / T / 正确），导入时统一成「正确 / 错误」，
+    // 免得背题稿、题库页、判分各认一套。认不出来的原样留着，判分时按「需自评」处理。
+    if (q.type === 'judge') {
+      const fixed = normalizeJudge(q.answer?.[0] ?? '') ?? normalizeJudge(q.answerText ?? '');
+      if (fixed !== null) {
+        q.answer = [fixed];
+        q.answerText = fixed;
+      }
+    }
   });
   if (!Array.isArray(data.topics)) data.topics = [];
   if (!data.meta || typeof data.meta !== 'object') {
@@ -76,6 +86,8 @@ export function typeLabel(type: string): string {
       return '单选';
     case 'multi':
       return '多选';
+    case 'judge':
+      return '判断';
     case 'fill':
       return '填空';
     case 'short':

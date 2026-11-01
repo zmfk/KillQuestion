@@ -80,6 +80,24 @@ describe('parseBankText', () => {
     expect(q.blanks).toBe(2);
   });
 
+  it('多空答案用顿号/逗号串写时按空数拆开', () => {
+    const text = [
+      '一、填空题',
+      '1．示例多空题依次是（ ）、（ ）。',
+      '答：甲、乙',
+      '2．示例多空题依次是（ ）、（ ）。',
+      '答：丙，丁',
+      '3．单空答案里带顿号的题：丙、丁（ ）。',
+      '答：丙、丁',
+    ].join('\n');
+    const parsed = parseBankText(text);
+    expect(parsed.questions[0].answer).toEqual(['甲', '乙']);
+    expect(parsed.questions[0].answerText).toBe('甲；乙');
+    expect(parsed.questions[1].answer).toEqual(['丙', '丁']);
+    // 单空题不能因为答案里有顿号就被拆碎
+    expect(parsed.questions[2].answer).toEqual(['丙、丁']);
+  });
+
   it('选择题拆出四个选项并识别单选', () => {
     const q = result.questions[2];
     expect(q.type).toBe('single');
@@ -134,6 +152,45 @@ describe('parseBankText', () => {
     const empty = parseBankText('随便一段话\n没有任何小节标题');
     expect(empty.questions).toHaveLength(0);
     expect(empty.warnings[0]).toContain('小节标题');
+  });
+});
+
+describe('判断题小节', () => {
+  const TEXT = [
+    '一、判断题',
+    '1．示例命题甲成立（ ）。',
+    '答：√',
+    '2．示例命题乙成立（ ）。',
+    '答：×',
+    '3．示例命题丙成立（ ）。',
+    '答案：正确',
+    '4．示例命题丁成立（ ）。',
+    '正确答案：错误',
+    '二、简答题',
+    '1．示例简答题的问题是什么？',
+    '答：示例答案。',
+  ].join('\n');
+  const result = parseBankText(TEXT);
+
+  it('认出判断题小节，后面的简答题不受影响', () => {
+    expect(result.sections).toEqual(['判断题', '简答题']);
+    expect(result.counters.judge).toBe(4);
+    expect(result.counters.short).toBe(1);
+  });
+
+  it('答案行认 √ × 正确 错误，统一成「正确 / 错误」', () => {
+    const answers = result.questions.filter((q) => q.type === 'judge').map((q) => q.answerText);
+    expect(answers).toEqual(['正确', '错误', '正确', '错误']);
+    expect(result.questions[0].answer).toEqual(['正确']);
+    expect(result.questions[0].section).toBe('judge');
+    expect(result.questions[0].sectionLabel).toBe('判断题');
+  });
+
+  it('没写答案的判断题留空，交给自评', () => {
+    const parsed = parseBankText(['一、判断题', '1．示例命题没有给答案（ ）。'].join('\n'));
+    expect(parsed.questions).toHaveLength(1);
+    expect(parsed.questions[0].answer).toEqual([]);
+    expect(parsed.questions[0].answerText).toBe('');
   });
 });
 
@@ -219,6 +276,40 @@ describe('matchTopics', () => {
     const { topics: counted } = matchTopics(questions, topics);
     expect(counted[0].count).toBe(1);
     expect(counted[1].count).toBe(1);
+  });
+
+  it('干扰项里出现的考点词不算命中（只认正确选项）', () => {
+    // 经典错挂：问「最大政治优势」，干扰项写「坚持民主集中制」，
+    // 若把攻击项也算进语料，这道题会被硬挂到「党内民主」那个考点上。
+    const trap = {
+      id: 'Q9',
+      type: 'single' as const,
+      no: 9,
+      section: 'choice',
+      sectionLabel: '选择题',
+      stem: '示例：最大政治优势是（ ）。',
+      options: [
+        { key: 'A', text: '坚持民主集中制' },
+        { key: 'B', text: '另一句话' },
+      ],
+      answer: ['B'],
+      answerText: 'B',
+      topicIds: [],
+    };
+    const judge = {
+      id: 'Q10',
+      type: 'judge' as const,
+      no: 10,
+      section: 'judge',
+      sectionLabel: '判断题',
+      stem: '示例：我国的国体是人民民主专政。',
+      answer: ['正确'],
+      answerText: '正确',
+      topicIds: [],
+    };
+    const { questions: tagged } = matchTopics([trap, judge], topics);
+    expect(tagged[0].topicIds).toEqual([]);
+    expect(tagged[1].topicIds).toContain('k02');
   });
 });
 

@@ -79,7 +79,7 @@ export function RecitePage() {
       <header className={styles.head}>
         <h1 className={styles.title}>背题</h1>
         <p className="hint">
-          整份题库摊在这一页上：考点在前，题目按 填空 → 选择 → 简答 → 论述 排。
+          整份题库摊在这一页上：考点在前，题目按 填空 → 选择 → 判断 → 简答 → 论述 排。
           {index.topics.length === 0 && ' 还没有划重点，所以只有题目、没有考点清单。'}
         </p>
 
