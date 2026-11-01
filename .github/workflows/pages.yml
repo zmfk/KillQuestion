@@ -26,6 +26,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: 产物里不许有原始资料与题目
+        run: npm run check:release
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

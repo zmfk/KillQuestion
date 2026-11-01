@@ -104,7 +104,18 @@ npm run dev        # 开发服务器
 npm run typecheck  # 类型检查
 npm test           # 单元测试
 npm run build      # 生产构建（产物在 dist/）
+npm run verify     # typecheck + test + build + 发布守卫，一条命令过全套
 ```
+
+### 发布守卫
+
+`npm run check:release`（CI 与 Pages 工作流都会跑）负责守住「仓库和产物里没有原始资料与题目」：
+
+- 进仓库的文件里不能有 PDF / Office 原件（按扩展名 + 文件头魔数双重判断，改个名字也拦得住）；
+- 进仓库的 JSON 只允许 `package.json` / `package-lock.json` / `tsconfig.json` / `manifest.webmanifest`；
+- `dist/` 里的文件必须在白名单内，且不能出现题库的 JSON 数据结构。
+
+判据用的是「结构」而不是「某几道题的文字」——把题干写进检查脚本，等于又把题目塞回仓库。
 
 部署：推送到 `main` 后 `.github/workflows/pages.yml` 会跑测试、构建并发布到 GitHub Pages。构建用 `base: './'` + `HashRouter`，所以子路径下刷新不会 404。
 

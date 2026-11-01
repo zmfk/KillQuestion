@@ -242,8 +242,13 @@ export function PracticePage() {
           <div className={`${styles.verdict} ${lastCorrect ? styles.verdictOk : styles.verdictBad}`}>
             <strong>{lastCorrect ? '答对了' : '答错了'}</strong>
             <span>
-              正确答案：{(current.answer ?? []).join('')}
-              {current.answerText ? ` · ${current.answerText}` : ''}
+              正确答案：
+              {(current.answer ?? [])
+                .map((k) => {
+                  const opt = current.options?.find((o) => o.key === k);
+                  return opt ? `${k}. ${opt.text}` : k;
+                })
+                .join('　')}
             </span>
           </div>
         )}

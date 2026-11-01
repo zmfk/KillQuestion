@@ -114,6 +114,14 @@ try {
     await sleep(1400);
   }
 
+  // --after：在截图前跑一段脚本，用来模拟点击、走完整交互链路
+  if (opts.after) {
+    const res = await call('Runtime.evaluate', { expression: opts.after, awaitPromise: true });
+    if (res.exceptionDetails) throw new Error(JSON.stringify(res.exceptionDetails));
+    console.log('after:', res.result?.value ?? '');
+    await sleep(400);
+  }
+
   await sleep(WAIT);
   const shot = await call('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   writeFileSync(out, Buffer.from(shot.data, 'base64'));
