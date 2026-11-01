@@ -44,7 +44,10 @@ export function HomePage() {
         <p className={styles.eyebrow}>党校结业考试 · 题库</p>
         <h1 className={styles.title}>把整套题库刷穿</h1>
         <p className={styles.lead}>
-          全部 {total} 道题：填空、单选、多选、简答、论述。划重点的 {topicTotal} 个考点做了标注，想练哪块点哪块。
+          全部 {total} 道题：填空、单选、多选、简答、论述。
+          {topicTotal > 0
+            ? `划重点的 ${topicTotal} 个考点做了标注，想练哪块点哪块。`
+            : '还没有划重点的标注——拖一份划重点进来，「重点刷题」才会亮。'}
         </p>
         <div className={styles.pills}>
           <span className={styles.pill}>共 {total} 题</span>
@@ -69,11 +72,19 @@ export function HomePage() {
       )}
 
       <section className={styles.grid}>
-        <button type="button" className={`${styles.modeCard} ${styles.primary}`} onClick={() => go('key')}>
+        <button
+          type="button"
+          className={`${styles.modeCard} ${keyTotal > 0 ? styles.primary : ''}`}
+          onClick={() => (keyTotal > 0 ? go('key') : navigate('/import'))}
+        >
           <span className={styles.modeIcon}>★</span>
           <span className={styles.modeBody}>
             <strong>重点刷题</strong>
-            <small>只刷划重点的 {keyTotal} 道题，考前冲刺用</small>
+            <small>
+              {keyTotal > 0
+                ? `只刷划重点的 ${keyTotal} 道题，考前冲刺用`
+                : '还没导入划重点——拖一份进来就能按重点刷'}
+            </small>
           </span>
           <span className={styles.modeArrow}>→</span>
         </button>
@@ -153,11 +164,18 @@ export function HomePage() {
       </section>
 
       <section className={styles.links}>
-        <button type="button" className="btn" onClick={() => navigate('/topics')}>
-          按考点刷（{topicTotal} 个）
+        <button
+          type="button"
+          className="btn"
+          onClick={() => navigate(topicTotal > 0 ? '/topics' : '/import')}
+        >
+          {topicTotal > 0 ? `按考点刷（${topicTotal} 个）` : '还没导入划重点'}
         </button>
         <button type="button" className="btn" onClick={() => navigate('/library')}>
           浏览全部题目
+        </button>
+        <button type="button" className="btn" onClick={() => navigate('/import')}>
+          换题库 / 补划重点
         </button>
       </section>
     </div>

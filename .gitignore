@@ -8,6 +8,9 @@ dist/
 dist-ssr/
 *.tsbuildinfo
 
+# pdfjs 的 CMap 表：构建时从 node_modules 现拷，不占仓库
+/public/cmaps/
+
 # 测试与覆盖率
 coverage/
 playwright-report/

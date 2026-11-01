@@ -6,6 +6,7 @@ const NAV = [
   { to: '/', label: '首页' },
   { to: '/topics', label: '考点' },
   { to: '/library', label: '题库' },
+  { to: '/import', label: '导入' },
 ];
 
 function getTheme(): 'light' | 'dark' {

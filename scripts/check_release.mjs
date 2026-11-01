@@ -29,7 +29,9 @@ const JSON_ALLOW = new Set([
 /** dist/ 允许出现的文件（相对 dist/） */
 const DIST_ALLOW = [
   /^index\.html$/,
-  /^assets\/[^/]+\.(js|css)$/,
+  /^assets\/[^/]+\.(js|mjs|css|wasm)$/,
+  /^cmaps\/[^/]+\.bcmap$/,
+  /^cmaps\/LICENSE$/,
   /^icon[^/]*\.(png|svg)$/,
   /^manifest\.webmanifest$/,
   /^sw\.js$/,
@@ -40,8 +42,11 @@ const FORBIDDEN_EXT = /\.(pdf|docx?|pptx?|xlsx?|cbz|epub)$/i;
 /** PDF 文件头（只在开头判定，避免文档里提到这几个字符就误报）；base64 形态也认 */
 const PDF_HEAD = '%PDF-';
 const PDF_B64 = 'JVBERi0';
-/** 题库 JSON 里才会出现的数据态标记（带引号和冒号，正常代码与示例占位符都不会这么写） */
+/** 题库 JSON 里才会出现的数据态标记（紧凑序列化形态；README 里的示例带空格，不会撞上） */
 const BANK_MARKERS = ['"stem":"', '"answerText":"', '"topicIds":["'];
+/** 带空格的序列化形态（JSON.stringify(x, null, 1) 那种）：按出现次数判定，示例里出现一两次不算 */
+const STEM_KEY = /"stem"\s*:/g;
+const STEM_LIMIT = 20;
 /** 单个文本文件体积上限，防止有人把题库直接粘进源码 */
 const MAX_TEXT_BYTES = 400 * 1024;
 
@@ -121,6 +126,8 @@ function checkRepoFiles(files) {
       // 源码里会写 answerText 这样的属性名，所以只在“数据态”上判定
       const hit = BANK_MARKERS.find((m) => text.includes(m));
       if (hit) fail(`文件里夹带了题库 JSON 数据（${hit}）：${rel}`);
+      const stems = (text.match(STEM_KEY) ?? []).length;
+      if (stems >= STEM_LIMIT) fail(`文件里像是整份题库（${stems} 处 stem 字段）：${rel}`);
     }
   }
 }

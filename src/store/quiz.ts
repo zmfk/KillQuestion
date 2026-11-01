@@ -69,6 +69,10 @@ interface QuizState {
 
   boot: () => void;
   importBankText: (text: string) => void;
+  /** 解析好的题库直接灌进来（PDF/DOCX 转换走这条路） */
+  importBankData: (data: BankData, opts?: { keepProgress?: boolean }) => void;
+  /** 把当前题库导出成 JSON 文本，便于备份或换设备 */
+  exportBankJson: () => string | null;
   clearBank: () => void;
   start: (mode: PracticeMode, opts?: { topicId?: string; ordered?: boolean }) => boolean;
   togglePick: (key: string) => void;
@@ -211,6 +215,37 @@ export const useQuiz = create<QuizState>((set, get) => {
           importError: err instanceof Error ? err.message : String(err),
         });
       }
+    },
+
+    importBankData: (data, opts) => {
+      try {
+        const parsed = validateBank(data);
+        const index = indexBank(parsed);
+        writeJson(BANK_KEY, parsed);
+        // 换题库时按旧 id 记的错题/收藏会张冠李戴，默认一起清掉
+        const keep = opts?.keepProgress ? readJson<Progress>(PROGRESS_KEY) : null;
+        const progress = keep ? { ...emptyProgress(), ...keep } : emptyProgress();
+        writeJson(PROGRESS_KEY, progress);
+        set({
+          index,
+          importError: null,
+          progress,
+          session: progress.session,
+          current: null,
+          submitted: false,
+          lastCorrect: null,
+          awaitingSelfAssess: false,
+        });
+        if (progress.session) loadCurrent(progress.session, index);
+      } catch (err) {
+        set({ importError: err instanceof Error ? err.message : String(err) });
+      }
+    },
+
+    exportBankJson: () => {
+      const index = get().index;
+      if (!index) return null;
+      return JSON.stringify(index.data, null, 1);
     },
 
     clearBank: () => {
