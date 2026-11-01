@@ -1,0 +1,250 @@
+/* 背题页：一页到底的文字版题库，主要目标是「好读」和「打印出来像样」。 */
+.page {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.head {
+  margin-bottom: 26px;
+}
+
+.title {
+  font-size: 26px;
+  margin: 0 0 8px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  user-select: none;
+}
+
+.toggle input {
+  accent-color: var(--accent);
+}
+
+.meta {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.block {
+  margin-bottom: 34px;
+}
+
+.blockTitle {
+  font-size: 18px;
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--line);
+}
+
+.group {
+  margin-bottom: 22px;
+}
+
+.groupTitle {
+  font-size: 15px;
+  margin: 0 0 12px;
+  color: var(--accent);
+}
+
+.groupTitle small {
+  margin-left: 6px;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 12px;
+}
+
+/* 考点清单 */
+.topicGroup {
+  margin-bottom: 16px;
+}
+
+.topicList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.topicItem {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: 14px;
+}
+
+.topicName {
+  flex: 1;
+  line-height: 1.6;
+}
+
+.topicCount {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* 题目 */
+.item {
+  padding: 12px 0 14px;
+  border-bottom: 1px solid var(--line);
+  break-inside: avoid;
+}
+
+.stem {
+  font-size: 15px;
+  line-height: 1.85;
+  margin: 0 0 8px;
+}
+
+.no {
+  color: var(--accent);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.material {
+  border-left: 3px solid var(--line);
+  padding: 6px 0 6px 12px;
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.materialTag {
+  display: inline-block;
+  font-size: 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-bottom: 4px;
+}
+
+.material p {
+  margin: 0;
+}
+
+.options {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.options li {
+  font-size: 14px;
+  line-height: 1.75;
+  padding-left: 8px;
+}
+
+.rightOpt {
+  color: var(--right);
+  font-weight: 600;
+}
+
+.answer {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--ink);
+  background: var(--accent-soft);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 8px 0 0;
+}
+
+.answerTag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-right: 8px;
+  vertical-align: 1px;
+}
+
+.covered {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.tail {
+  margin-top: 30px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+  border-top: 1px dashed var(--line);
+  padding-top: 14px;
+}
+
+/* 打印：去掉外壳和按钮，只留正文；答案保留（背题稿的价值就在答案上） */
+@media print {
+  .head {
+    margin-bottom: 18px;
+  }
+
+  .toolbar {
+    display: none;
+  }
+
+  .meta {
+    color: #444;
+  }
+
+  .block {
+    margin-bottom: 24px;
+  }
+
+  .item {
+    padding: 8px 0 10px;
+    border-bottom: 1px solid #ddd;
+    break-inside: avoid;
+  }
+
+  .groupTitle {
+    color: #000;
+  }
+
+  .no {
+    color: #000;
+  }
+
+  .answer {
+    background: #f4f4f4;
+    color: #000;
+    border: 1px solid #ddd;
+  }
+
+  .rightOpt {
+    color: #000;
+    text-decoration: underline;
+  }
+
+  .tail {
+    border-top: 1px solid #ddd;
+  }
+}

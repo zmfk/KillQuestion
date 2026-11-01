@@ -174,6 +174,9 @@ export function HomePage() {
         <button type="button" className="btn" onClick={() => navigate('/library')}>
           浏览全部题目
         </button>
+        <button type="button" className="btn" onClick={() => navigate('/recite')}>
+          背题稿（整份题库一页看完）
+        </button>
         <button type="button" className="btn" onClick={() => navigate('/import')}>
           换题库 / 补划重点
         </button>
