@@ -18,8 +18,22 @@
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
+        var hadController = !!navigator.serviceWorker.controller;
+        var refreshed = false;
+        // 新版本接管时自动刷新一次（仅当本来就由旧 SW 控制，避免首次安装白刷）
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+          if (!hadController || refreshed) return;
+          refreshed = true;
+          window.location.reload();
+        });
         window.addEventListener('load', function () {
-          navigator.serviceWorker.register('./sw.js').catch(function () {});
+          navigator.serviceWorker
+            // updateViaCache: 'none' —— GitHub Pages 会给 sw.js 十分钟缓存，不绕过去的话新版本要等很久
+            .register('./sw.js', { updateViaCache: 'none' })
+            .then(function (reg) {
+              reg.update().catch(function () {});
+            })
+            .catch(function () {});
         });
       }
     </script>

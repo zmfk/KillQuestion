@@ -1,8 +1,11 @@
 /*
- * 离线优先：先查缓存，未命中再走网络并把结果放进缓存。
- * 只缓存应用外壳；题库由用户导入后存在 localStorage，首次打开之后断网也能刷。
+ * 离线可用，但绝不把旧版本焊死：
+ * - 页面导航（index.html）走「网络优先」：能联网就取最新的外壳，顺手更新缓存；
+ *   断网才回落到缓存。以前这里也是缓存优先，结果本地重建之后浏览器永远吃旧代码。
+ * - 带内容哈希的静态资源（assets/index-xxxx.js）仍然缓存优先，离线也快。
+ * - 缓存名换一次，激活时把上一版外壳整个删掉。
  */
-const CACHE = 'killquestion-v1';
+const CACHE = 'killquestion-v2';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -23,6 +26,25 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
+  const isNavigation = req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
+
+  // 外壳：网络优先，失败才用缓存（离线时还能打开）
+  if (isNavigation) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(req).then((hit) => hit || caches.match('./index.html'))),
+    );
+    return;
+  }
+
+  // 资源：缓存优先（文件名带 hash，内容变了文件名就变了）
   event.respondWith(
     caches.match(req).then((hit) => {
       if (hit) return hit;
@@ -34,10 +56,7 @@ self.addEventListener('fetch', (event) => {
           }
           return res;
         })
-        .catch(() => {
-          if (req.mode === 'navigate') return caches.match('./index.html');
-          return new Response('', { status: 504, statusText: 'offline' });
-        });
+        .catch(() => new Response('', { status: 504, statusText: 'offline' }));
     }),
   );
 });
