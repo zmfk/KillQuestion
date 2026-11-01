@@ -19,13 +19,17 @@ export function PracticePage() {
   const current = useQuiz((s) => s.current);
   const picked = useQuiz((s) => s.picked);
   const fillInputs = useQuiz((s) => s.fillInputs);
+  const essayInput = useQuiz((s) => s.essayInput);
+  const essayVerdict = useQuiz((s) => s.essayVerdict);
   const submitted = useQuiz((s) => s.submitted);
   const lastCorrect = useQuiz((s) => s.lastCorrect);
   const awaitingSelfAssess = useQuiz((s) => s.awaitingSelfAssess);
   const togglePick = useQuiz((s) => s.togglePick);
   const setFill = useQuiz((s) => s.setFill);
+  const setEssay = useQuiz((s) => s.setEssay);
   const submit = useQuiz((s) => s.submit);
   const selfAssess = useQuiz((s) => s.selfAssess);
+  const reviseEssay = useQuiz((s) => s.reviseEssay);
   const next = useQuiz((s) => s.next);
   const finish = useQuiz((s) => s.finish);
   const toggleStar = useQuiz((s) => s.toggleStar);
@@ -260,16 +264,52 @@ export function PracticePage() {
           <div className={styles.essayArea}>
             <p className={styles.tip}>
               {current.type === 'short'
-                ? '先在心里组织答案，再点「对答案」并自评。'
-                : '论述题按「观点 + 事例 + 联系实际」组织，200–300 字。'}
+                ? '把要点写下来交卷：会逐条对照参考答案，达到 55% 判对，判得不对可以自己改判。'
+                : '论述题按「观点 + 事例 + 联系实际」组织，200–300 字；交卷后逐条对照参考答案要点。'}
             </p>
-            {submitted && (
+            <textarea
+              className={`textarea ${styles.essayInput}`}
+              value={essayInput}
+              readOnly={submitted}
+              onChange={(e) => setEssay(e.target.value)}
+              rows={current.type === 'short' ? 4 : 8}
+              placeholder="在这里作答（写要点就行，交卷后自动对照参考答案）"
+            />
+            {submitted && !essayVerdict && (
               <div className={styles.answerBox}>
                 <span className={styles.answerLabel}>参考答案</span>
                 <p>{current.answerText || '（原书未给出参考答案）'}</p>
               </div>
             )}
           </div>
+        )}
+
+        {submitted && isEssay && essayVerdict && (
+          <>
+            <div className={`${styles.verdict} ${lastCorrect ? styles.verdictOk : styles.verdictBad}`}>
+              <strong>{lastCorrect ? '答对了' : '没答到要点'}</strong>
+              <span>
+                与参考答案匹配 {Math.round(essayVerdict.score * 100)}% · 答到{' '}
+                {essayVerdict.matched}/{essayVerdict.total} 条要点（≥
+                {Math.round(essayVerdict.passRatio * 100)}% 判对，词面对照仅供参考）
+                {lastCorrect !== essayVerdict.correct && (
+                  <em className={styles.revisedTag}>已按你的判断改判</em>
+                )}
+              </span>
+            </div>
+            <div className={styles.pointBox}>
+              <span className={styles.answerLabel}>逐条对照</span>
+              {essayVerdict.points.map((point, i) => (
+                <p
+                  key={`${i}-${point.text.slice(0, 8)}`}
+                  className={point.covered ? styles.pointHit : styles.pointMiss}
+                >
+                  <em>{point.covered ? '✓' : '○'}</em>
+                  {point.text}
+                </p>
+              ))}
+            </div>
+          </>
         )}
 
         {submitted && isChoice && (
@@ -319,7 +359,7 @@ export function PracticePage() {
             onClick={submit}
             disabled={(isChoice || isJudge) && picked.length === 0}
           >
-            {isEssay ? '对答案' : '提交答案'}
+            {isEssay ? '交卷对照答案' : '提交答案'}
           </button>
         )}
 
@@ -331,6 +371,21 @@ export function PracticePage() {
             </button>
             <button type="button" className="btn btnPrimary" onClick={() => selfAssess(true)}>
               答上来了
+            </button>
+          </>
+        )}
+
+        {submitted && !awaitingSelfAssess && isEssay && essayVerdict && (
+          <>
+            <span className={styles.assessTip}>
+              {lastCorrect ? '其实没答到要点？' : '其实答到要点了？'}
+            </span>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => reviseEssay(!lastCorrect)}
+            >
+              {lastCorrect ? '算我答错' : '算我答对'}
             </button>
           </>
         )}

@@ -324,6 +324,58 @@
   gap: 10px;
 }
 
+/* 简答 / 论述的作答框：全局 .textarea 给了边框与聚焦态，这里只管字体与行距 */
+.essayInput {
+  font-size: 14px;
+  line-height: 1.8;
+  font-family: inherit;
+}
+
+.pointBox {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.pointBox p {
+  font-size: 13.5px;
+  line-height: 1.75;
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+}
+
+.pointBox em {
+  font-style: normal;
+  flex-shrink: 0;
+  width: 14px;
+}
+
+.pointHit {
+  color: var(--right);
+}
+
+.pointMiss {
+  color: var(--muted);
+}
+
+/* 人工改判标记：匹配分与最终判定不一致时点明一句，别让人以为页面自己算错了 */
+.revisedTag {
+  font-style: normal;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
 .answerBox {
   border: 1px dashed var(--line);
   border-radius: 10px;

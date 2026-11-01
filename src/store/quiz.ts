@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { gradeEssayAnswer } from '../core/answerMatch';
+import type { EssayVerdict } from '../core/answerMatch';
 import { autoGrade } from '../core/grade';
 import { mulberry32 } from '../core/rng';
 import { freshSeed, shuffle, shuffleChoiceOptions } from '../core/shuffle';
@@ -62,9 +64,13 @@ interface QuizState {
   current: Question | null;
   picked: string[];
   fillInputs: string[];
+  /** 简答 / 论述的作答输入（切换题目时清空） */
+  essayInput: string;
   submitted: boolean;
   lastCorrect: boolean | null;
   awaitingSelfAssess: boolean;
+  /** 简答 / 论述的自动对照结果；没答案或没写东西时为 null（走自评） */
+  essayVerdict: EssayVerdict | null;
   booted: boolean;
 
   boot: () => void;
@@ -77,8 +83,11 @@ interface QuizState {
   start: (mode: PracticeMode, opts?: { topicId?: string; ordered?: boolean }) => boolean;
   togglePick: (key: string) => void;
   setFill: (index: number, value: string) => void;
+  setEssay: (text: string) => void;
   submit: () => void;
   selfAssess: (correct: boolean) => void;
+  /** 推翻简答 / 论述的自动对照结果（词面匹配只是参照，人说了算） */
+  reviseEssay: (correct: boolean) => void;
   next: () => void;
   finish: () => void;
   toggleStar: (id: string) => void;
@@ -118,11 +127,46 @@ export const useQuiz = create<QuizState>((set, get) => {
       current: shown,
       picked: [],
       fillInputs:
-        shown && shown.type === 'fill' ? new Array(shown.blanks ?? shown.answer?.length ?? 1).fill('') : [],
+        shown && shown.type === 'fill'
+          ? new Array(shown.blanks ?? shown.answer?.length ?? 1).fill('')
+          : [],
+      essayInput: '',
+      essayVerdict: null,
       submitted: false,
       lastCorrect: null,
       awaitingSelfAssess: false,
     });
+  };
+
+  /** 记一次作答：题库记录、会话结果、本轮判定一起更新，三个入口（交卷 / 自评 / 改判）共用 */
+  const mark = (questionId: string, correct: boolean, picked: string[], score?: number) => {
+    const at = Date.now();
+    const item: ResultItem = {
+      questionId,
+      correct,
+      picked,
+      at,
+      ...(score === undefined ? {} : { score }),
+    };
+    const progress = get().progress;
+    const prev = progress.records[questionId] ?? { right: 0, wrong: 0, lastAt: 0 };
+    const session = get().session;
+    const records = {
+      ...progress.records,
+      [questionId]: {
+        right: prev.right + (correct ? 1 : 0),
+        wrong: prev.wrong + (correct ? 0 : 1),
+        lastAt: at,
+      },
+    };
+    commit({
+      records,
+      lastStudyAt: at,
+      ...(session ? { session: { ...session, results: [...session.results, item] } } : {}),
+    });
+    if (session) set({ session: { ...session, results: [...session.results, item] } });
+    set({ submitted: true, lastCorrect: correct, awaitingSelfAssess: false });
+    return item;
   };
 
   const buildPool = (
@@ -189,9 +233,11 @@ export const useQuiz = create<QuizState>((set, get) => {
     current: null,
     picked: [],
     fillInputs: [],
+    essayInput: '',
     submitted: false,
     lastCorrect: null,
     awaitingSelfAssess: false,
+    essayVerdict: null,
     booted: false,
 
     boot: () => {
@@ -246,6 +292,8 @@ export const useQuiz = create<QuizState>((set, get) => {
           submitted: false,
           lastCorrect: null,
           awaitingSelfAssess: false,
+          essayInput: '',
+          essayVerdict: null,
         });
         if (progress.session) loadCurrent(progress.session, index);
       } catch (err) {
@@ -271,6 +319,8 @@ export const useQuiz = create<QuizState>((set, get) => {
         progress: emptyProgress(),
         session: null,
         current: null,
+        essayInput: '',
+        essayVerdict: null,
         importError: null,
       });
     },
@@ -314,8 +364,13 @@ export const useQuiz = create<QuizState>((set, get) => {
       set({ fillInputs: next });
     },
 
+    setEssay: (text) => {
+      if (get().submitted) return;
+      set({ essayInput: text });
+    },
+
     submit: () => {
-      const { current, picked, fillInputs, submitted } = get();
+      const { current, picked, fillInputs, essayInput, submitted } = get();
       if (!current || submitted) return;
       if (
         (current.type === 'single' || current.type === 'multi' || current.type === 'judge') &&
@@ -325,60 +380,56 @@ export const useQuiz = create<QuizState>((set, get) => {
       }
       if (current.type === 'fill' && fillInputs.every((v) => v.trim() === '')) return;
 
+      // 简答 / 论述：有输入且题库有参考答案时按要点对照判，否则退回复习自评
+      if (current.type === 'short' || current.type === 'essay') {
+        const verdict = gradeEssayAnswer(current, essayInput);
+        if (verdict === null) {
+          set({ submitted: true, awaitingSelfAssess: true, lastCorrect: null, essayVerdict: null });
+          return;
+        }
+        mark(current.id, verdict.correct, [essayInput.trim().slice(0, 4000)], verdict.score);
+        set({ essayVerdict: verdict });
+        return;
+      }
+
       const verdict = autoGrade(current, current.type === 'fill' ? fillInputs : picked);
       if (verdict === null) {
         set({ submitted: true, awaitingSelfAssess: true, lastCorrect: null });
         return;
       }
-      const item: ResultItem = {
-        questionId: current.id,
-        correct: verdict,
-        picked: current.type === 'fill' ? fillInputs.slice() : picked.slice(),
-        at: Date.now(),
-      };
-      const progress = get().progress;
-      const prev = progress.records[item.questionId] ?? { right: 0, wrong: 0, lastAt: 0 };
-      const session = get().session;
-      commit({
-        records: {
-          ...progress.records,
-          [item.questionId]: {
-            right: prev.right + (verdict ? 1 : 0),
-            wrong: prev.wrong + (verdict ? 0 : 1),
-            lastAt: item.at,
-          },
-        },
-        lastStudyAt: item.at,
-        ...(session ? { session: { ...session, results: [...session.results, item] } } : {}),
-      });
-      if (session) set({ session: { ...session, results: [...session.results, item] } });
-      set({ submitted: true, lastCorrect: verdict, awaitingSelfAssess: false });
+      mark(current.id, verdict, current.type === 'fill' ? fillInputs.slice() : picked.slice());
     },
 
     selfAssess: (correct) => {
       const { current, awaitingSelfAssess } = get();
       if (!current || !awaitingSelfAssess) return;
-      const item: ResultItem = { questionId: current.id, correct, picked: [], at: Date.now() };
+      mark(current.id, correct, []);
+    },
+
+    reviseEssay: (correct) => {
+      const { current, session, submitted, awaitingSelfAssess, lastCorrect } = get();
+      if (!current || !submitted || awaitingSelfAssess) return;
+      if (current.type !== 'short' && current.type !== 'essay') return;
+      if (lastCorrect === correct) return;
+      // 词面匹配只是参照分：改判时先把上一次记的分回滚，再记新的，别让同一道题记两遍
       const progress = get().progress;
-      const prev = progress.records[item.questionId] ?? { right: 0, wrong: 0, lastAt: 0 };
-      const session = get().session;
-      const nextSession = session
-        ? { ...session, results: [...session.results, item] }
-        : null;
-      commit({
-        records: {
-          ...progress.records,
-          [item.questionId]: {
-            right: prev.right + (correct ? 1 : 0),
-            wrong: prev.wrong + (correct ? 0 : 1),
-            lastAt: item.at,
-          },
+      const prev = progress.records[current.id] ?? { right: 0, wrong: 0, lastAt: Date.now() };
+      const records = {
+        ...progress.records,
+        [current.id]: {
+          right: Math.max(0, prev.right - (lastCorrect ? 1 : 0) + (correct ? 1 : 0)),
+          wrong: Math.max(0, prev.wrong - (lastCorrect === false ? 1 : 0) + (correct ? 0 : 1)),
+          lastAt: prev.lastAt,
         },
-        lastStudyAt: item.at,
-        ...(nextSession ? { session: nextSession } : {}),
-      });
-      if (nextSession) set({ session: nextSession });
-      set({ awaitingSelfAssess: false, lastCorrect: correct });
+      };
+      const last = session?.results.at(-1);
+      const results =
+        session && last && last.questionId === current.id
+          ? [...session.results.slice(0, -1), { ...last, correct }]
+          : (session?.results ?? []);
+      commit({ records, ...(session ? { session: { ...session, results } } : {}) });
+      if (session) set({ session: { ...session, results } });
+      set({ lastCorrect: correct });
     },
 
     next: () => {

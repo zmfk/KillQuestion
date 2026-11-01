@@ -62,9 +62,11 @@ export interface ModeInfo {
 export interface ResultItem {
   questionId: string;
   correct: boolean;
-  /** 选择题=字母；判断题=正确/错误；填空=逐空文本；简答/论述=自评 */
+  /** 选择题=字母；判断题=正确/错误；填空=逐空文本；简答/论述=用户输入的原文 */
   picked: string[];
   at: number;
+  /** 简答/论述的对照匹配度 0..1（其它题型没有） */
+  score?: number;
 }
 
 /** 单题历史统计（跨会话累积） */
