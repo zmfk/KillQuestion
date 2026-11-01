@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { autoGrade } from '../core/grade';
 import { mulberry32 } from '../core/rng';
-import { shuffle } from '../core/shuffle';
+import { freshSeed, shuffle, shuffleChoiceOptions } from '../core/shuffle';
 import { indexBank, validateBank } from '../data/bank';
 import type { BankIndex } from '../data/bank';
 import type { BankData, PracticeMode, Progress, Question, ResultItem, Session } from '../types';
@@ -97,17 +97,28 @@ export const useQuiz = create<QuizState>((set, get) => {
     set({ session });
   };
 
+  /**
+   * 出一道题前的「上桌版」：选择题的选项每次重新打乱，字母按新位置重编，答案同步。
+   * 返回的是副本，题库索引里的原题（背题稿、题库页、导出）保持原顺序不动。
+   */
+  const presentQuestion = (q: Question): Question => {
+    if ((q.type !== 'single' && q.type !== 'multi') || (q.options?.length ?? 0) < 2) return q;
+    const { options, answer } = shuffleChoiceOptions(q.options ?? [], q.answer ?? [], mulberry32(freshSeed()));
+    return { ...q, options, answer };
+  };
+
   const loadCurrent = (session: Session | null, index: BankIndex | null) => {
     if (!session || !index || session.index >= session.queue.length) {
       set({ current: null });
       return;
     }
     const q = index.questionById.get(session.queue[session.index]) ?? null;
+    const shown = q ? presentQuestion(q) : null;
     set({
-      current: q,
+      current: shown,
       picked: [],
       fillInputs:
-        q && q.type === 'fill' ? new Array(q.blanks ?? q.answer?.length ?? 1).fill('') : [],
+        shown && shown.type === 'fill' ? new Array(shown.blanks ?? shown.answer?.length ?? 1).fill('') : [],
       submitted: false,
       lastCorrect: null,
       awaitingSelfAssess: false,
