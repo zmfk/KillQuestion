@@ -17,9 +17,11 @@ export function RecitePage() {
   const [withTopics, setWithTopics] = useState(true);
   const [copied, setCopied] = useState(false);
 
+  const keyIds = useMemo(() => new Set(index?.keyIds ?? []), [index]);
+
   const groups = useMemo(
-    () => (index ? groupQuestions(index.questions, onlyKey) : []),
-    [index, onlyKey],
+    () => (index ? groupQuestions(index.questions, onlyKey, keyIds) : []),
+    [index, onlyKey, keyIds],
   );
 
   const topicGroups = useMemo(() => (index ? groupTopics(index.topics) : []), [index]);
@@ -47,7 +49,7 @@ export function RecitePage() {
   if (!index) return <ImportPanel />;
 
   const text = () =>
-    buildReciteText(index.data, { onlyKey, hideAnswer, withTopics });
+    buildReciteText(index.data, { onlyKey, hideAnswer, withTopics, keyIds });
 
   const copyAll = async () => {
     const body = text();

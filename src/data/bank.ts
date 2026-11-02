@@ -1,5 +1,5 @@
 import { normalizeJudge } from '../core/grade';
-import type { BankData, Question, Topic } from '../types';
+import type { BankData, KeyOverrides, Question, Topic } from '../types';
 
 /**
  * 题库运行时索引。题库不打包进仓库，由用户导入后存在本机，
@@ -11,11 +11,27 @@ export interface BankIndex {
   topics: Topic[];
   questionById: Map<string, Question>;
   topicById: Map<string, Topic>;
+  /** 当前生效的重点题 id（已把手动提升 / 降级算进去） */
   keyIds: string[];
   allIds: string[];
 }
 
-export function indexBank(data: BankData): BankIndex {
+/** 单题是否重点：手动改过就听手动的，没改过按题库的考点标注算 */
+export function isKeyQuestion(q: Question, overrides: KeyOverrides | undefined): boolean {
+  const forced = overrides?.[q.id];
+  if (forced !== undefined) return forced;
+  return (q.topicIds?.length ?? 0) > 0;
+}
+
+/** 把手动调整算进索引：只重算 keyIds，题目本身（考点标注、答案）一个字都不动 */
+export function withKeyOverrides(index: BankIndex, overrides: KeyOverrides | undefined): BankIndex {
+  return {
+    ...index,
+    keyIds: index.questions.filter((q) => isKeyQuestion(q, overrides)).map((q) => q.id),
+  };
+}
+
+export function indexBank(data: BankData, overrides?: KeyOverrides): BankIndex {
   const questions = data.questions ?? [];
   const topics = data.topics ?? [];
   return {
@@ -24,7 +40,7 @@ export function indexBank(data: BankData): BankIndex {
     topics,
     questionById: new Map(questions.map((q) => [q.id, q])),
     topicById: new Map(topics.map((t) => [t.id, t])),
-    keyIds: questions.filter((q) => (q.topicIds?.length ?? 0) > 0).map((q) => q.id),
+    keyIds: questions.filter((q) => isKeyQuestion(q, overrides)).map((q) => q.id),
     allIds: questions.map((q) => q.id),
   };
 }

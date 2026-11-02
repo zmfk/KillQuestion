@@ -34,7 +34,7 @@ export function ExamSetup({ mode, onClose, onStart }: Props) {
   });
 
   const available = useMemo(
-    () => countsByType(index?.questions ?? [], tab === 'examKey'),
+    () => countsByType(index?.questions ?? [], new Set(index?.keyIds ?? []), tab === 'examKey'),
     [index, tab],
   );
 

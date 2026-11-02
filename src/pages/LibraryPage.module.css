@@ -130,6 +130,31 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 「重点 / 设重点」：只改本机记录，不动题库原文 */
+.keyBtn {
+  flex-shrink: 0;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.keyBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.keyOn {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+}
+
 .star {
   appearance: none;
   border: none;
@@ -138,6 +163,7 @@
   font-size: 17px;
   cursor: pointer;
   line-height: 1;
+  padding: 0 2px;
 }
 
 .starOn {

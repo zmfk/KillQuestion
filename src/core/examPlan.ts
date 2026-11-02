@@ -19,14 +19,15 @@ export function emptyPlan(): ExamPlan {
   return { fill: 0, single: 0, multi: 0, judge: 0, short: 0, essay: 0 };
 }
 
-/** 各题型在某个池子里的库存（全题卷 = 整库，重点卷 = 划重点的题） */
+/** 各题型在某个池子里的库存（全题卷 = 整库，重点卷 = 重点题的 id 集合） */
 export function countsByType(
-  questions: ReadonlyArray<{ type: QuestionType; topicIds?: string[] }>,
+  questions: ReadonlyArray<{ id: string; type: QuestionType }>,
+  keyIds: ReadonlySet<string>,
   keyOnly: boolean,
 ): Record<QuestionType, number> {
   const counts = emptyPlan();
   for (const q of questions) {
-    if (keyOnly && (q.topicIds?.length ?? 0) === 0) continue;
+    if (keyOnly && !keyIds.has(q.id)) continue;
     counts[q.type] = (counts[q.type] ?? 0) + 1;
   }
   return counts;

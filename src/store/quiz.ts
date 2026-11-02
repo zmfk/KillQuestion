@@ -7,11 +7,12 @@ import { clampPlan, countsByType, DEFAULT_EXAM_PLAN, normalizePlan } from '../co
 import { autoGrade } from '../core/grade';
 import { mulberry32 } from '../core/rng';
 import { freshSeed, shuffle, shuffleChoiceOptions } from '../core/shuffle';
-import { indexBank, validateBank } from '../data/bank';
+import { indexBank, validateBank, withKeyOverrides } from '../data/bank';
 import type { BankIndex } from '../data/bank';
 import type {
   BankData,
   ExamPlan,
+  KeyOverrides,
   PracticeMode,
   Progress,
   Question,
@@ -25,7 +26,14 @@ const PLAN_KEY = 'killquestion.examplan.v1';
 const EXAM_MINUTES = 60;
 
 function emptyProgress(): Progress {
-  return { records: {}, stars: [], session: null, finishedSessions: 0, lastStudyAt: null };
+  return {
+    records: {},
+    stars: [],
+    keyOverrides: {},
+    session: null,
+    finishedSessions: 0,
+    lastStudyAt: null,
+  };
 }
 
 function readJson<T>(key: string): T | null {
@@ -125,6 +133,11 @@ interface QuizState {
   next: () => void;
   finish: () => void;
   toggleStar: (id: string) => void;
+  /**
+   * 手动调重点：true 提升为重点，false 降为普通，null 恢复题库口径。
+   * 改的是本机记录，不动导入进来的题库原文；全站的重点口径都跟着 index.keyIds 走。
+   */
+  setKeyOverride: (questionId: string, key: boolean | null) => void;
   resetAll: () => void;
 }
 
@@ -260,7 +273,7 @@ export const useQuiz = create<QuizState>((set, get) => {
         const keyOnly = mode === 'examKey';
         const keyIds = keyOnly ? new Set(index.keyIds) : null;
         // 用户可能把某题型填得比库存还多：按库存钳一遍，卷子题量以实际抽到的为准
-        const wanted = clampPlan(plan, countsByType(index.questions, keyOnly));
+        const wanted = clampPlan(plan, countsByType(index.questions, new Set(index.keyIds), keyOnly));
         const rng = mulberry32(Date.now() >>> 0);
         const picked: string[] = [];
         for (const [type, count] of Object.entries(wanted)) {
@@ -312,7 +325,7 @@ export const useQuiz = create<QuizState>((set, get) => {
       let index: BankIndex | null = null;
       if (rawBank) {
         try {
-          index = indexBank(validateBank(rawBank));
+          index = indexBank(validateBank(rawBank), progress.keyOverrides);
         } catch {
           index = null;
         }
@@ -327,9 +340,9 @@ export const useQuiz = create<QuizState>((set, get) => {
     importBankText: (text) => {
       try {
         const parsed = validateBank(JSON.parse(text));
-        const index = indexBank(parsed);
-        writeJson(BANK_KEY, parsed);
         const progress = { ...emptyProgress(), ...(readJson<Progress>(PROGRESS_KEY) ?? {}) };
+        const index = indexBank(parsed, progress.keyOverrides);
+        writeJson(BANK_KEY, parsed);
         set({ index, importError: null, progress, session: progress.session });
         if (progress.session) loadCurrent(progress.session, index);
       } catch (err) {
@@ -342,11 +355,11 @@ export const useQuiz = create<QuizState>((set, get) => {
     importBankData: (data, opts) => {
       try {
         const parsed = validateBank(data);
-        const index = indexBank(parsed);
-        writeJson(BANK_KEY, parsed);
-        // 换题库时按旧 id 记的错题/收藏会张冠李戴，默认一起清掉
+        // 换题库时按旧 id 记的错题/收藏/重点调整都会张冠李戴，默认一起清掉
         const keep = opts?.keepProgress ? readJson<Progress>(PROGRESS_KEY) : null;
         const progress = keep ? { ...emptyProgress(), ...keep } : emptyProgress();
+        const index = indexBank(parsed, progress.keyOverrides);
+        writeJson(BANK_KEY, parsed);
         writeJson(PROGRESS_KEY, progress);
         set({
           index,
@@ -383,19 +396,24 @@ export const useQuiz = create<QuizState>((set, get) => {
       const backup = parseBackupText(text);
       const mode = opts?.mode ?? 'merge';
 
+      const local = get().progress;
+      const progress = mode === 'replace' ? backup.progress : mergeProgress(local, backup.progress);
+
       // 先落题库：进度里的题 id 要能对上题，不然恢复出来是「已答 300 题但一道也打不开」
       let bankImported = false;
       let index = get().index;
+      let data = index?.data ?? null;
       if (backup.bank) {
-        const parsed = validateBank(backup.bank);
-        index = indexBank(parsed);
-        writeJson(BANK_KEY, parsed);
-        set({ index, importError: null });
+        data = validateBank(backup.bank);
+        writeJson(BANK_KEY, data);
         bankImported = true;
       }
+      // 重点调整跟着进度走：换 / 恢复题库后按新的 overrides 重算重点题
+      if (data) {
+        index = indexBank(data, progress.keyOverrides);
+        set({ index, importError: null });
+      }
 
-      const local = get().progress;
-      const progress = mode === 'replace' ? backup.progress : mergeProgress(local, backup.progress);
       writeJson(PROGRESS_KEY, progress);
       set({
         progress,
@@ -586,6 +604,20 @@ export const useQuiz = create<QuizState>((set, get) => {
     toggleStar: (id) => {
       const stars = get().progress.stars;
       commit({ stars: stars.includes(id) ? stars.filter((x) => x !== id) : [...stars, id] });
+    },
+
+    setKeyOverride: (questionId, key) => {
+      const index = get().index;
+      const question = index?.questionById.get(questionId);
+      if (!index || !question) return;
+      const overrides: KeyOverrides = { ...(get().progress.keyOverrides ?? {}) };
+      const base = (question.topicIds?.length ?? 0) > 0;
+      // 与题库口径一致就不必留记录：恢复默认 = 删掉覆盖，数据保持干净
+      if (key === null || key === base) delete overrides[questionId];
+      else overrides[questionId] = key;
+      const progress = { ...get().progress, keyOverrides: overrides };
+      writeJson(PROGRESS_KEY, progress);
+      set({ progress, index: withKeyOverrides(index, overrides) });
     },
 
     resetAll: () => {

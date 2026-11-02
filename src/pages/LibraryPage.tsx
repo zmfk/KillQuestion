@@ -25,6 +25,7 @@ export function LibraryPage() {
   const records = useQuiz((s) => s.progress.records);
   const stars = useQuiz((s) => s.progress.stars);
   const toggleStar = useQuiz((s) => s.toggleStar);
+  const setKeyOverride = useQuiz((s) => s.setKeyOverride);
 
   const [type, setType] = useState<QuestionType | 'all'>('all');
   const [keyword, setKeyword] = useState('');
@@ -32,16 +33,18 @@ export function LibraryPage() {
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState<string | null>(null);
 
+  const keySet = useMemo(() => new Set(index?.keyIds ?? []), [index]);
+
   const filtered = useMemo(() => {
     if (!index) return [];
     const kw = keyword.trim();
     return index.questions.filter((q) => {
       if (type !== 'all' && q.type !== type) return false;
-      if (onlyKey && q.topicIds.length === 0) return false;
+      if (onlyKey && !keySet.has(q.id)) return false;
       if (kw && !q.stem.includes(kw) && !(q.answerText ?? '').includes(kw)) return false;
       return true;
     });
-  }, [index, type, keyword, onlyKey]);
+  }, [index, type, keyword, onlyKey, keySet]);
 
   if (!index) return <ImportPanel />;
 
@@ -54,7 +57,10 @@ export function LibraryPage() {
     <div className={styles.page}>
       <header className={styles.head}>
         <h1>题库（{index.questions.length} 题）</h1>
-        <p className="hint">全部题目与答案。点标题展开看答案，星标可收藏。</p>
+        <p className="hint">
+          全部题目与答案。点标题展开看答案，星标可收藏；「☆ 设重点 / ★ 重点」能把任意题在重点与普通之间切换
+          （只改本机，不动题库原文）。
+        </p>
       </header>
 
       <div className={styles.filters}>
@@ -101,6 +107,7 @@ export function LibraryPage() {
           const rec = records[q.id];
           const open = openId === q.id;
           const starred = stars.includes(q.id);
+          const isKey = keySet.has(q.id);
           return (
             <li key={q.id} className={styles.item}>
               <div className={styles.itemHead}>
@@ -113,6 +120,15 @@ export function LibraryPage() {
                       {rec.wrong > 0 ? ` 错${rec.wrong}` : ''}
                     </span>
                   )}
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.keyBtn} ${isKey ? styles.keyOn : ''}`}
+                  onClick={() => setKeyOverride(q.id, !isKey)}
+                  data-key-toggle={q.id}
+                  title={isKey ? '降为普通题（只改本机，不动题库原文）' : '提升为重点题（只改本机，不动题库原文）'}
+                >
+                  {isKey ? '★ 重点' : '☆ 设重点'}
                 </button>
                 <button
                   type="button"

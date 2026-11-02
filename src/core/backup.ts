@@ -7,7 +7,7 @@
  * 这里只做纯数据：不碰 DOM、不读写 localStorage，由 store 决定写到哪、页面决定怎么下载。
  */
 import { readPlan } from './examPlan';
-import type { BankData, Progress, QuestionRecord, Session } from '../types';
+import type { BankData, KeyOverrides, Progress, QuestionRecord, Session } from '../types';
 
 export const BACKUP_APP = 'killquestion';
 export const BACKUP_KIND = 'backup';
@@ -106,6 +106,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** 手动重点调整：只认「id → 布尔」，坏值逐条丢掉 */
+function normalizeKeyOverrides(raw: unknown): KeyOverrides {
+  const out: KeyOverrides = {};
+  if (isRecord(raw)) {
+    for (const [id, value] of Object.entries(raw)) {
+      if (typeof value === 'boolean' && id !== '') out[id] = value;
+    }
+  }
+  return out;
+}
+
 function normalizeRecord(raw: unknown): QuestionRecord | null {
   if (!isRecord(raw)) return null;
   const right = Number(raw.right);
@@ -119,8 +130,7 @@ function normalizeRecord(raw: unknown): QuestionRecord | null {
   };
 }
 
-function normalizeSession(raw: unknown): Session | null {
-  if (!isRecord(raw)) return null;
+function normalizeSession(raw: unknown): Session | null {  if (!isRecord(raw)) return null;
   const queue = raw.queue;
   if (!Array.isArray(queue) || queue.some((id) => typeof id !== 'string')) return null;
   const mode = typeof raw.mode === 'string' && MODES.has(raw.mode) ? raw.mode : null;
@@ -170,6 +180,7 @@ export function normalizeProgress(raw: unknown): Progress {
   return {
     records,
     stars,
+    keyOverrides: normalizeKeyOverrides(source.keyOverrides),
     session: normalizeSession(source.session),
     finishedSessions: Math.max(0, Math.floor(Number(source.finishedSessions) || 0)),
     lastStudyAt: Number.isFinite(lastStudyAt) && lastStudyAt > 0 ? lastStudyAt : null,
@@ -234,6 +245,8 @@ export function mergeProgress(local: Progress, incoming: Progress): Progress {
   return {
     records,
     stars: Array.from(new Set([...(local.stars ?? []), ...(incoming.stars ?? [])])),
+    // 手动改过重点状态的题：两边都有以本机为准（那是这台机器上刚动过的手）
+    keyOverrides: { ...(incoming.keyOverrides ?? {}), ...(local.keyOverrides ?? {}) },
     // 正在进行的练习以本机为准：那是这台设备上真实没刷完的那一轮
     session: local.session ?? incoming.session,
     finishedSessions: (local.finishedSessions ?? 0) + (incoming.finishedSessions ?? 0),

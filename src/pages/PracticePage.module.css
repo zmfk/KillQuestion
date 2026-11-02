@@ -111,8 +111,33 @@
   color: var(--gold);
 }
 
-.starBtn {
+/* 「重点 / 设为重点」：只改本机的重点状态，不动题库原文 */
+.keyBtn {
   margin-left: auto;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.keyBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.keyOn {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+}
+
+.starBtn {
+  margin-left: 6px;
   appearance: none;
   border: none;
   background: none;

@@ -53,6 +53,7 @@ function progress(partial: Partial<Progress> = {}): Progress {
       Q2: { right: 0, wrong: 2, lastAt: 2000 },
     },
     stars: ['Q1'],
+    keyOverrides: {},
     session: {
       mode: 'all',
       label: '全量刷题',
@@ -84,6 +85,7 @@ describe('summarizeProgress', () => {
     const empty: Progress = {
       records: {},
       stars: [],
+      keyOverrides: {},
       session: null,
       finishedSessions: 0,
       lastStudyAt: null,
@@ -219,6 +221,19 @@ describe('normalizeProgress', () => {
   it('完全不是对象时给空进度', () => {
     expect(normalizeProgress(null)).toMatchObject({ records: {}, stars: [], finishedSessions: 0 });
   });
+
+  it('手动重点调整只留合法的布尔记录，坏值逐条丢掉', () => {
+    const normalized = normalizeProgress({
+      records: {},
+      stars: [],
+      keyOverrides: { Q1: false, Q2: true, 坏值: '是的', 空值: null, '': true },
+    });
+    expect(normalized.keyOverrides).toEqual({ Q1: false, Q2: true });
+  });
+
+  it('没有 keyOverrides 字段时给空对象（兼容旧备份）', () => {
+    expect(normalizeProgress({ records: {}, stars: [] }).keyOverrides).toEqual({});
+  });
 });
 
 describe('mergeProgress', () => {
@@ -250,6 +265,13 @@ describe('mergeProgress', () => {
 
     const noLocal = progress({ session: null });
     expect(mergeProgress(noLocal, incoming).session?.label).toBe('备份里的');
+  });
+
+  it('手动重点调整合并时以本机为准，备份里的新记录补进来', () => {
+    const local = progress({ keyOverrides: { Q1: true, Q2: false } });
+    const incoming = progress({ keyOverrides: { Q1: false, Q3: true } });
+    const merged = mergeProgress(local, incoming);
+    expect(merged.keyOverrides).toEqual({ Q1: true, Q2: false, Q3: true });
   });
 
   it('不修改入参', () => {

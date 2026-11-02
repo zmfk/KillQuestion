@@ -459,6 +459,71 @@ describe('错题重刷（全部 / 重点）', () => {
   });
 });
 
+describe('手动调整重点', () => {
+  const keyIds = () => useQuiz.getState().index?.keyIds ?? [];
+  const queueOf = () => useQuiz.getState().session?.queue ?? [];
+
+  it('默认按题库的考点标注算重点', () => {
+    expect(new Set(keyIds())).toEqual(new Set(['Q1', 'Q3']));
+    expect(useQuiz.getState().progress.keyOverrides).toEqual({});
+  });
+
+  it('普通题能提升为重点，重点刷题与重点考试都跟着变', () => {
+    useQuiz.getState().setKeyOverride('Q2', true);
+    expect(keyIds()).toContain('Q2');
+
+    useQuiz.getState().start('key');
+    expect(queueOf()).toContain('Q2');
+
+    useQuiz.getState().start('examKey', {
+      plan: { fill: 0, single: 1, multi: 1, judge: 0, short: 0, essay: 0 },
+    });
+    expect(queueOf()).toEqual(['Q1', 'Q2']);
+  });
+
+  it('重点题能降为普通，重点池里不再有它', () => {
+    useQuiz.getState().setKeyOverride('Q1', false);
+    expect(keyIds()).not.toContain('Q1');
+
+    useQuiz.getState().start('key');
+    expect(queueOf()).not.toContain('Q1');
+    expect(queueOf()).toEqual(['Q3']);
+  });
+
+  it('设回题库口径（null）时不留覆盖记录', () => {
+    useQuiz.getState().setKeyOverride('Q2', true);
+    expect(useQuiz.getState().progress.keyOverrides).toEqual({ Q2: true });
+
+    useQuiz.getState().setKeyOverride('Q2', null);
+    expect(useQuiz.getState().progress.keyOverrides).toEqual({});
+    expect(keyIds()).not.toContain('Q2');
+  });
+
+  it('与题库口径一样的调整不写记录', () => {
+    useQuiz.getState().setKeyOverride('Q1', true); // Q1 本来就是重点
+    expect(useQuiz.getState().progress.keyOverrides).toEqual({});
+    expect(keyIds()).toContain('Q1');
+  });
+
+  it('「重点未完成」池也跟着调整走', () => {
+    useQuiz.getState().setKeyOverride('Q2', true);
+    useQuiz.getState().start('todoKey');
+    expect(queueOf()).toContain('Q2');
+  });
+
+  it('调整落在本机存储里，重开也能读回来', () => {
+    useQuiz.getState().setKeyOverride('Q2', true);
+    const saved = JSON.parse(localStorage.getItem('killquestion.progress.v1') ?? 'null');
+    expect(saved.keyOverrides).toEqual({ Q2: true });
+  });
+
+  it('换题库时默认清掉手动调整（题 id 会变）', () => {
+    useQuiz.getState().setKeyOverride('Q2', true);
+    useQuiz.getState().importBankData(JSON.parse(JSON.stringify(BANK)) as BankData);
+    expect(useQuiz.getState().progress.keyOverrides).toEqual({});
+  });
+});
+
 describe('备份导出与恢复', () => {
   /** 答一道选择题，返回它的 id */
   function answerOneChoice(): string {

@@ -12,12 +12,14 @@ import { normalizeJudge } from './grade';
 import type { BankData, Question, Topic } from '../types';
 
 export interface ReciteOptions {
-  /** 只收划过重点的题 */
+  /** 只收重点题 */
   onlyKey?: boolean;
   /** 遮住答案（先自己回想，再翻答案） */
   hideAnswer?: boolean;
   /** 开头是否带考点清单 */
   withTopics?: boolean;
+  /** 当前生效的重点题 id（含手动提升 / 降级）；不传就按题库的考点标注算 */
+  keyIds?: ReadonlySet<string>;
   /** 标题里的时间 */
   now?: Date;
 }
@@ -45,8 +47,14 @@ export interface ReciteTopicGroup {
 }
 
 /** 按小节分组，顺序固定；认不出来的小节排在最后，免得内容被悄悄丢掉 */
-export function groupQuestions(questions: Question[], onlyKey = false): ReciteGroup[] {
-  const kept = onlyKey ? questions.filter((q) => (q.topicIds?.length ?? 0) > 0) : questions;
+export function groupQuestions(
+  questions: Question[],
+  onlyKey = false,
+  keyIds?: ReadonlySet<string>,
+): ReciteGroup[] {
+  const isKey = (q: Question) =>
+    keyIds ? keyIds.has(q.id) : (q.topicIds?.length ?? 0) > 0;
+  const kept = onlyKey ? questions.filter(isKey) : questions;
   const buckets = new Map<string, Question[]>();
   for (const q of kept) {
     const key = SECTION_ORDER.includes(q.section) ? q.section : 'other';
@@ -125,8 +133,8 @@ function stamp(d: Date): string {
  * 所以材料只在他第一次出现的地方印一遍，后面的题标「材料同上」。
  */
 export function buildReciteText(data: BankData, opts: ReciteOptions = {}): string {
-  const { onlyKey = false, hideAnswer = false, withTopics = true, now = new Date() } = opts;
-  const groups = groupQuestions(data.questions ?? [], onlyKey);
+  const { onlyKey = false, hideAnswer = false, withTopics = true, keyIds, now = new Date() } = opts;
+  const groups = groupQuestions(data.questions ?? [], onlyKey, keyIds);
   const total = groups.reduce((n, g) => n + g.questions.length, 0);
   const topics = data.topics ?? [];
 

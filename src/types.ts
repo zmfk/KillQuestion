@@ -88,6 +88,12 @@ export interface ResultItem {
   score?: number;
 }
 
+/**
+ * 手动调整过的重点状态：true = 提升为重点，false = 降为普通。
+ * 没记录的题沿用题库里的考点标注（`topicIds` 非空即重点）。
+ */
+export type KeyOverrides = Record<string, boolean>;
+
 /** 单题历史统计（跨会话累积） */
 export interface QuestionRecord {
   right: number;
@@ -112,6 +118,8 @@ export interface Session {
 export interface Progress {
   records: Record<string, QuestionRecord>;
   stars: string[];
+  /** 手动改过重点状态的题；换题库时清空（题 id 变了） */
+  keyOverrides: KeyOverrides;
   session: Session | null;
   finishedSessions: number;
   lastStudyAt: number | null;

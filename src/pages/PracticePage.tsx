@@ -34,6 +34,7 @@ export function PracticePage() {
   const finish = useQuiz((s) => s.finish);
   const toggleStar = useQuiz((s) => s.toggleStar);
   const stars = useQuiz((s) => s.progress.stars);
+  const setKeyOverride = useQuiz((s) => s.setKeyOverride);
   const index = useQuiz((s) => s.index);
 
   const [materialOpen, setMaterialOpen] = useState(false);
@@ -81,6 +82,7 @@ export function PracticePage() {
   const percent = Math.round((done / total) * 100);
   const remainingMs = session.endsAt ? session.endsAt - now : 0;
   const starred = stars.includes(current.id);
+  const isKey = index?.keyIds.includes(current.id) ?? false;
   const isChoice = current.type === 'single' || current.type === 'multi';
   const isJudge = current.type === 'judge';
   const judgeAnswer = isJudge ? normalizeJudge(current.answer?.[0] ?? '') : null;
@@ -140,6 +142,15 @@ export function PracticePage() {
               ))}
             </span>
           )}
+          <button
+            type="button"
+            className={`${styles.keyBtn} ${isKey ? styles.keyOn : ''}`}
+            onClick={() => setKeyOverride(current.id, !isKey)}
+            data-key-toggle
+            title={isKey ? '降为普通题（只改本机，不动题库原文）' : '提升为重点题（只改本机，不动题库原文）'}
+          >
+            {isKey ? '★ 重点' : '☆ 设为重点'}
+          </button>
           <button
             type="button"
             className={`${styles.starBtn} ${starred ? styles.starred : ''}`}

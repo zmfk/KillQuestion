@@ -130,6 +130,14 @@ describe('groupQuestions', () => {
     expect(ids).toEqual(['Q2', 'Q3', 'Q5']);
   });
 
+  it('传了 keyIds 就按它认重点（手动提升 / 降级也算）', () => {
+    // 把没挂考点的 Q1 提升为重点、把挂考点的 Q2 降为普通
+    const keyIds = new Set(['Q1', 'Q3', 'Q5']);
+    const groups = groupQuestions(QUESTIONS, true, keyIds);
+    const ids = groups.flatMap((g) => g.questions.map((x) => x.id));
+    expect(ids).toEqual(['Q1', 'Q3', 'Q5']);
+  });
+
   it('认不出来的小节排到最后，不会被丢掉', () => {
     const odd = q({ id: 'QX', type: 'short', stem: '别的小节', section: 'appendix' });
     const groups = groupQuestions([...QUESTIONS, odd]);

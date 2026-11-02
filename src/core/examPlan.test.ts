@@ -18,6 +18,9 @@ const QUESTIONS: Question[] = [
   { id: 'Q4', type: 'essay', no: 4, section: 'essay', sectionLabel: '论述题', stem: '四', topicIds: ['k1'] },
 ];
 
+/** 题库自带口径的重点题（挂过考点） */
+const KEY_IDS = new Set(['Q1', 'Q3', 'Q4']);
+
 describe('考试配比：整理与钳制', () => {
   it('默认配比就是原卷结构，合计 47 题', () => {
     expect(DEFAULT_EXAM_PLAN).toEqual({ fill: 10, single: 20, multi: 1, judge: 10, short: 3, essay: 3 });
@@ -39,7 +42,7 @@ describe('考试配比：整理与钳制', () => {
   });
 
   it('填得比库存多只出库存那么多，不补别的题型', () => {
-    const available = countsByType(QUESTIONS, false);
+    const available = countsByType(QUESTIONS, KEY_IDS, false);
     expect(available).toEqual({ fill: 1, single: 2, multi: 0, judge: 0, short: 0, essay: 1 });
 
     const plan = clampPlan({ fill: 10, single: 20, multi: 5, judge: 10, short: 3, essay: 3 }, available);
@@ -47,8 +50,18 @@ describe('考试配比：整理与钳制', () => {
     expect(planTotal(plan)).toBe(4);
   });
 
-  it('重点卷的库存只算划了重点的题', () => {
-    expect(countsByType(QUESTIONS, true)).toEqual({
+  it('重点卷的库存只算重点题（含手动提升 / 降级后的结果）', () => {
+    expect(countsByType(QUESTIONS, KEY_IDS, true)).toEqual({
+      fill: 1,
+      single: 1,
+      multi: 0,
+      judge: 0,
+      short: 0,
+      essay: 1,
+    });
+    // 手动把 Q2 提为重点、把 Q1 降为普通之后
+    const adjusted = new Set(['Q2', 'Q3', 'Q4']);
+    expect(countsByType(QUESTIONS, adjusted, true)).toEqual({
       fill: 1,
       single: 1,
       multi: 0,
@@ -59,7 +72,7 @@ describe('考试配比：整理与钳制', () => {
   });
 
   it('输入框里的字符串：空串和乱写当 0，超库存钳到库存', () => {
-    const available = countsByType(QUESTIONS, false);
+    const available = countsByType(QUESTIONS, KEY_IDS, false);
     const plan = draftToPlan(
       { fill: '7', single: '', multi: 'abc', judge: '0', short: '2', essay: '5' },
       available,
