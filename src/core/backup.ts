@@ -47,7 +47,18 @@ export interface BackupImportSummary {
   sessionResumed: boolean;
 }
 
-const MODES = new Set(['key', 'all', 'wrong', 'star', 'topic', 'exam', 'todo', 'todoKey']);
+const MODES = new Set([
+  'key',
+  'all',
+  'wrong',
+  'wrongKey',
+  'star',
+  'topic',
+  'exam',
+  'examKey',
+  'todo',
+  'todoKey',
+]);
 
 /** 摘要：题数、答过多少、对错次数、收藏数、完成轮次 */
 export function summarizeProgress(progress: Progress, questionCount = 0): BackupStats {

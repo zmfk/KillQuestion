@@ -21,10 +21,14 @@ export function HomePage() {
     // 「未完成」= 作答记录里没有这道题；做过一次（对错不论）就算完成
     const todoAll = index ? index.allIds.filter((id) => progress.records[id] === undefined).length : 0;
     const todoKey = index ? index.keyIds.filter((id) => progress.records[id] === undefined).length : 0;
+    // 错题池同口径（做错次数多于做对），再按是否划重点拆成两个池子
+    const pending = Object.entries(progress.records).filter(([, r]) => r.wrong > r.right);
+    const keyIds = new Set(index?.keyIds ?? []);
     return {
       answered,
       accuracy: attempts === 0 ? 0 : Math.round((totalRight / attempts) * 100),
-      wrongPending: records.filter((r) => r.wrong > r.right).length,
+      wrongPending: pending.length,
+      wrongPendingKey: index ? pending.filter(([id]) => keyIds.has(id)).length : 0,
       starred: progress.stars.length,
       covered: total === 0 ? 0 : Math.round((answered / total) * 100),
       todoAll,
@@ -80,7 +84,7 @@ export function HomePage() {
         <div className={styles.todoHead}>
           <strong>还没练过的题</strong>
           <p>
-            做过一次就算完成（对错不论）；要重刷做错的题走下面的「错题重刷」。
+            做过一次就算完成（对错不论）；要重刷做错的题走下面的「错题重刷」（分全部 / 重点两档）。
           </p>
         </div>
         <div className={styles.todoBtns}>
@@ -146,8 +150,26 @@ export function HomePage() {
         <button type="button" className={styles.modeCard} onClick={() => go('exam')}>
           <span className={styles.modeIcon}>⏱</span>
           <span className={styles.modeBody}>
-            <strong>模拟考试</strong>
-            <small>按真实卷面配比组卷，60 分钟计时</small>
+            <strong>全题考试</strong>
+            <small>按真实卷面配比从全部 {total} 道题里组卷，60 分钟计时</small>
+          </span>
+          <span className={styles.modeArrow}>→</span>
+        </button>
+
+        <button
+          type="button"
+          className={styles.modeCard}
+          onClick={() => (keyTotal > 0 ? go('examKey') : navigate('/import'))}
+          disabled={keyTotal === 0}
+        >
+          <span className={`${styles.modeIcon} ${styles.modeIconTight}`}>⏱★</span>
+          <span className={styles.modeBody}>
+            <strong>重点考试</strong>
+            <small>
+              {keyTotal > 0
+                ? `同一套卷面配比，只在 ${keyTotal} 道重点题里抽；某题型不够就按实际数量出`
+                : '还没导入划重点——拖一份进来才有重点卷'}
+            </small>
           </span>
           <span className={styles.modeArrow}>→</span>
         </button>
@@ -160,9 +182,29 @@ export function HomePage() {
         >
           <span className={styles.modeIcon}>✗</span>
           <span className={styles.modeBody}>
-            <strong>错题重刷</strong>
+            <strong>错题重刷 · 全部</strong>
             <small>
               {stats.wrongPending > 0 ? `${stats.wrongPending} 道题还没吃透` : '还没有错题，先刷几道'}
+            </small>
+          </span>
+          <span className={styles.modeArrow}>→</span>
+        </button>
+
+        <button
+          type="button"
+          className={styles.modeCard}
+          onClick={() => go('wrongKey')}
+          disabled={stats.wrongPendingKey === 0}
+        >
+          <span className={`${styles.modeIcon} ${styles.modeIconTight}`}>✗★</span>
+          <span className={styles.modeBody}>
+            <strong>错题重刷 · 重点</strong>
+            <small>
+              {keyTotal === 0
+                ? '还没导入划重点——暂时没有重点错题'
+                : stats.wrongPendingKey > 0
+                  ? `只看重点题里的 ${stats.wrongPendingKey} 道错题`
+                  : '重点题还没错过，去刷重点题'}
             </small>
           </span>
           <span className={styles.modeArrow}>→</span>

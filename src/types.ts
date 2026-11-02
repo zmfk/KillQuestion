@@ -55,14 +55,17 @@ export interface BankData {
  * 练习模式。
  * `todo` / `todoKey` 是「还没做过」的题：按作答记录筛，做过一次（不论对错）就算完成，
  * 和「错题重刷」（做错了还没订正）是两件事。
+ * 带 `Key` 的变体都是「只看划重点的题」：考试分全题卷 / 重点卷，错题重刷分全部 / 重点。
  */
 export type PracticeMode =
   | 'key'
   | 'all'
   | 'wrong'
+  | 'wrongKey'
   | 'star'
   | 'topic'
   | 'exam'
+  | 'examKey'
   | 'todo'
   | 'todoKey';
 

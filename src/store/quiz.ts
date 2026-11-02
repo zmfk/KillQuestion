@@ -39,6 +39,11 @@ function writeJson(key: string, value: unknown): void {
 
 const TYPE_ORDER: Record<string, number> = { fill: 0, single: 1, multi: 2, judge: 3, short: 4, essay: 5 };
 
+/** 两种考试卷：全题考试（整本题库配比抽题）、重点考试（只在划重点的题里配比抽题） */
+export function isExamMode(mode: PracticeMode): boolean {
+  return mode === 'exam' || mode === 'examKey';
+}
+
 export function modeLabel(mode: PracticeMode, topicTitle?: string): string {
   switch (mode) {
     case 'key':
@@ -46,11 +51,15 @@ export function modeLabel(mode: PracticeMode, topicTitle?: string): string {
     case 'all':
       return '全量刷题';
     case 'wrong':
-      return '错题重刷';
+      return '错题重刷 · 全部';
+    case 'wrongKey':
+      return '错题重刷 · 重点';
     case 'star':
       return '收藏夹';
     case 'exam':
-      return '模拟考试';
+      return '全题考试';
+    case 'examKey':
+      return '重点考试';
     case 'todo':
       return '未完成 · 全量';
     case 'todoKey':
@@ -202,6 +211,18 @@ export const useQuiz = create<QuizState>((set, get) => {
           })
           .map((q) => q.id);
         break;
+      case 'wrongKey': {
+        // 与「错题重刷 · 全部」同一口径，只多一条：必须是划了重点的题
+        const keyIds = new Set(index.keyIds);
+        ids = index.questions
+          .filter((q) => {
+            if (!keyIds.has(q.id)) return false;
+            const r = progress.records[q.id];
+            return r !== undefined && r.wrong > r.right;
+          })
+          .map((q) => q.id);
+        break;
+      }
       case 'star':
         ids = progress.stars.filter((id) => index.questionById.has(id));
         break;
@@ -217,11 +238,16 @@ export const useQuiz = create<QuizState>((set, get) => {
           .filter((q) => (topicId ? q.topicIds.includes(topicId) : false))
           .map((q) => q.id);
         break;
-      case 'exam': {
+      case 'exam':
+      case 'examKey': {
+        // 同一套卷面配比；重点考试只在划重点的题里抽，某题型重点题不够就按实际数量出
+        const keyIds = mode === 'examKey' ? new Set(index.keyIds) : null;
         const rng = mulberry32(Date.now() >>> 0);
         const picked: string[] = [];
         for (const [type, count] of Object.entries(EXAM_PLAN)) {
-          const bucket = index.questions.filter((q) => q.type === type).map((q) => q.id);
+          const bucket = index.questions
+            .filter((q) => q.type === type && (keyIds === null || keyIds.has(q.id)))
+            .map((q) => q.id);
           picked.push(...shuffle(bucket, rng).slice(0, count));
         }
         return picked
@@ -397,7 +423,7 @@ export const useQuiz = create<QuizState>((set, get) => {
       const index = get().index;
       if (!index) return false;
       const topicId = opts?.topicId;
-      const pool = buildPool(mode, index, get().progress, topicId, opts?.ordered ?? mode === 'exam');
+      const pool = buildPool(mode, index, get().progress, topicId, opts?.ordered ?? isExamMode(mode));
       if (pool.length === 0) return false;
       const topicTitle = topicId ? index.topicById.get(topicId)?.title : undefined;
       const session: Session = {
@@ -408,7 +434,7 @@ export const useQuiz = create<QuizState>((set, get) => {
         index: 0,
         results: [],
         startedAt: Date.now(),
-        endsAt: mode === 'exam' ? Date.now() + EXAM_MINUTES * 60_000 : null,
+        endsAt: isExamMode(mode) ? Date.now() + EXAM_MINUTES * 60_000 : null,
       };
       saveSession(session);
       loadCurrent(session, index);

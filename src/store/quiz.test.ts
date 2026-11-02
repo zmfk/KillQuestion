@@ -319,6 +319,89 @@ describe('未完成题练习', () => {
   });
 });
 
+describe('考试卷（全题 / 重点）', () => {
+  const sessionOf = () => useQuiz.getState().session!;
+
+  it('全题考试：按卷面配比从整本题库抽，题型顺序排好，带 60 分钟倒计时', () => {
+    expect(useQuiz.getState().start('exam')).toBe(true);
+    const s = sessionOf();
+    expect(s.label).toBe('全题考试');
+    // 题库里每种题型各一道，配比份额大于库存时按实际数量出
+    expect(s.queue).toEqual(['Q1', 'Q2', 'Q3']);
+    expect(Math.round(((s.endsAt ?? 0) - s.startedAt) / 60_000)).toBe(60);
+  });
+
+  it('重点考试：同一套配比，但只在划重点的题里抽，非重点题不进卷', () => {
+    expect(useQuiz.getState().start('examKey')).toBe(true);
+    const s = sessionOf();
+    expect(s.label).toBe('重点考试');
+    expect(s.queue).toEqual(['Q1', 'Q3']);
+    expect(s.queue).not.toContain('Q2');
+    expect(Math.round(((s.endsAt ?? 0) - s.startedAt) / 60_000)).toBe(60);
+  });
+
+  it('非考试模式没有倒计时', () => {
+    useQuiz.getState().start('all');
+    expect(sessionOf().endsAt).toBeNull();
+  });
+});
+
+/** 把当前这道选择题故意答错，返回题目 id */
+function missChoice(type: Question['type']): string {
+  const state = useQuiz.getState();
+  const q = gotoType(type);
+  const wrongKey = (q.options ?? []).map((o) => o.key).find((k) => !(q.answer ?? []).includes(k));
+  if (!wrongKey) throw new Error('这道题找不到错项');
+  state.togglePick(wrongKey);
+  state.submit();
+  expect(useQuiz.getState().lastCorrect).toBe(false);
+  return q.id;
+}
+
+describe('错题重刷（全部 / 重点）', () => {
+  const queueOf = () => useQuiz.getState().session?.queue ?? [];
+
+  it('全部错题 = 所有做错的题；重点错题 = 其中划了重点的那些', () => {
+    useQuiz.getState().start('all');
+    missChoice('single'); // Q1，挂了考点
+    useQuiz.getState().start('all');
+    missChoice('multi'); // Q2，没挂考点
+
+    useQuiz.getState().start('wrong');
+    expect(useQuiz.getState().session?.label).toBe('错题重刷 · 全部');
+    expect(new Set(queueOf())).toEqual(new Set(['Q1', 'Q2']));
+
+    expect(useQuiz.getState().start('wrongKey')).toBe(true);
+    expect(useQuiz.getState().session?.label).toBe('错题重刷 · 重点');
+    expect(new Set(queueOf())).toEqual(new Set(['Q1']));
+    expect(queueOf()).not.toContain('Q2');
+  });
+
+  it('重刷到「做对多于做错」就从池子里退出，重点池空了按钮变灰', () => {
+    useQuiz.getState().start('all');
+    missChoice('single');
+    useQuiz.getState().start('all');
+    missChoice('multi');
+
+    // 把 Q1 连答对两次：right=2 > wrong=1
+    for (let i = 0; i < 2; i += 1) {
+      useQuiz.getState().start('key');
+      const q = gotoType('single');
+      expect(q.id).toBe('Q1');
+      for (const key of q.answer ?? []) useQuiz.getState().togglePick(key);
+      useQuiz.getState().submit();
+      expect(useQuiz.getState().lastCorrect).toBe(true);
+    }
+
+    useQuiz.getState().start('wrong');
+    expect(queueOf()).not.toContain('Q1');
+    expect(queueOf()).toEqual(['Q2']);
+
+    expect(useQuiz.getState().start('wrongKey')).toBe(false);
+    expect(useQuiz.getState().progress.records.Q1).toMatchObject({ right: 2, wrong: 1 });
+  });
+});
+
 describe('备份导出与恢复', () => {
   /** 答一道选择题，返回它的 id */
   function answerOneChoice(): string {

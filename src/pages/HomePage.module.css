@@ -161,6 +161,13 @@
   color: var(--accent-ink);
 }
 
+/* 双字符图标（⏱★ / ✗★）在 38px 方块里挤一行，别再换行撑高 */
+.modeIconTight {
+  font-size: 13px;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+}
+
 .modeBody {
   display: flex;
   flex-direction: column;
