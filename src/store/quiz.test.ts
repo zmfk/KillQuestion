@@ -318,3 +318,129 @@ describe('未完成题练习', () => {
     expect(Object.keys(useQuiz.getState().progress.records)).toHaveLength(3);
   });
 });
+
+describe('备份导出与恢复', () => {
+  /** 答一道选择题，返回它的 id */
+  function answerOneChoice(): string {
+    useQuiz.getState().start('all');
+    const q = gotoType('single', 'multi');
+    for (const key of q.answer ?? []) useQuiz.getState().togglePick(key);
+    useQuiz.getState().submit();
+    return q.id;
+  }
+
+  it('导出的备份能整包恢复到「另一台设备」：题库 + 记录 + 收藏 + 进行中的一轮', () => {
+    const id = answerOneChoice();
+    useQuiz.getState().toggleStar(id);
+    const text = useQuiz.getState().exportBackupText({ includeBank: true });
+    const before = useQuiz.getState().progress;
+
+    // 模拟换设备：题库与进度一起清掉
+    useQuiz.getState().clearBank();
+    expect(useQuiz.getState().index).toBeNull();
+
+    const summary = useQuiz.getState().importBackup(text, { mode: 'replace' });
+    const state = useQuiz.getState();
+
+    expect(summary.bankImported).toBe(true);
+    expect(summary.questionCount).toBe(3);
+    expect(state.index?.questions).toHaveLength(3);
+    expect(state.progress.records[id]).toEqual(before.records[id]);
+    expect(state.progress.stars).toEqual([id]);
+    expect(state.progress.finishedSessions).toBe(before.finishedSessions);
+    // 备份里带着没刷完的那一轮，恢复后能接着刷
+    expect(state.session).not.toBeNull();
+    expect(state.current?.id).toBe(state.session?.queue[state.session.index]);
+  });
+
+  it('只导答题情况（不含题库）也能恢复，本机仍没有题库', () => {
+    const id = answerOneChoice();
+    const text = useQuiz.getState().exportBackupText({ includeBank: false });
+    useQuiz.getState().clearBank();
+
+    const summary = useQuiz.getState().importBackup(text, { mode: 'replace' });
+    const state = useQuiz.getState();
+    expect(summary.bankImported).toBe(false);
+    expect(state.index).toBeNull();
+    expect(state.progress.records[id]).toBeDefined();
+    // 没题库就出不了题，但记录照样在，等题库导进来就能对上
+    expect(state.current).toBeNull();
+  });
+
+  it('合并模式：同一题的次数相加，收藏取并集', () => {
+    const id = answerOneChoice();
+    const local = useQuiz.getState().progress.records[id];
+    const incoming = {
+      app: 'killquestion',
+      kind: 'backup',
+      version: 1,
+      progress: {
+        records: { [id]: { right: 5, wrong: 2, lastAt: 1 }, Q_不在题库: { right: 1, wrong: 0, lastAt: 2 } },
+        stars: ['Q_收藏'],
+        session: null,
+        finishedSessions: 3,
+        lastStudyAt: 9,
+      },
+    };
+    const summary = useQuiz.getState().importBackup(JSON.stringify(incoming), { mode: 'merge' });
+    const state = useQuiz.getState();
+
+    expect(summary.mode).toBe('merge');
+    expect(state.progress.records[id]).toEqual({
+      right: local!.right + 5,
+      wrong: local!.wrong + 2,
+      lastAt: Math.max(local!.lastAt, 1),
+    });
+    expect(state.progress.finishedSessions).toBe(3);
+    expect(state.progress.stars).toContain('Q_收藏');
+    expect(summary.records).toBeGreaterThanOrEqual(2);
+  });
+
+  it('覆盖模式：本机多出来的记录被丢掉，完全以备份为准', () => {
+    const id = answerOneChoice();
+    const incoming = {
+      app: 'killquestion',
+      kind: 'backup',
+      version: 1,
+      progress: {
+        records: { 只这一题: { right: 1, wrong: 0, lastAt: 5 } },
+        stars: [],
+        session: null,
+        finishedSessions: 1,
+        lastStudyAt: 5,
+      },
+    };
+    useQuiz.getState().importBackup(JSON.stringify(incoming), { mode: 'replace' });
+    const state = useQuiz.getState();
+    expect(state.progress.records[id]).toBeUndefined();
+    expect(Object.keys(state.progress.records)).toEqual(['只这一题']);
+    expect(state.progress.finishedSessions).toBe(1);
+  });
+
+  it('坏文件报错，且不破坏已有数据', () => {
+    const id = answerOneChoice();
+    const before = useQuiz.getState().progress;
+
+    expect(() => useQuiz.getState().importBackup('这不是 JSON')).toThrow(/不是 JSON/);
+    expect(() => useQuiz.getState().importBackup(JSON.stringify({ app: '别的应用' }))).toThrow();
+    expect(useQuiz.getState().progress).toEqual(before);
+    expect(useQuiz.getState().progress.records[id]).toBeDefined();
+  });
+
+  it('备份里题库结构不对时报错，进度不被改掉', () => {
+    const id = answerOneChoice();
+    const before = useQuiz.getState().progress;
+    const bad = {
+      app: 'killquestion',
+      kind: 'backup',
+      version: 1,
+      progress: { records: { Q1: { right: 9, wrong: 0, lastAt: 1 } }, stars: [] },
+      bank: { questions: [{ id: 'Q1', type: '不认识的题型' }] },
+    };
+    expect(() => useQuiz.getState().importBackup(JSON.stringify(bad), { mode: 'replace' })).toThrow(
+      /题型不认识/,
+    );
+    expect(useQuiz.getState().progress).toEqual(before);
+    expect(useQuiz.getState().progress.records[id]).toBeDefined();
+  });
+});

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { gradeEssayAnswer } from '../core/answerMatch';
 import type { EssayVerdict } from '../core/answerMatch';
+import { buildBackup, mergeProgress, parseBackupText, summarizeProgress } from '../core/backup';
+import type { BackupImportSummary } from '../core/backup';
 import { autoGrade } from '../core/grade';
 import { mulberry32 } from '../core/rng';
 import { freshSeed, shuffle, shuffleChoiceOptions } from '../core/shuffle';
@@ -83,6 +85,10 @@ interface QuizState {
   importBankData: (data: BankData, opts?: { keepProgress?: boolean }) => void;
   /** 把当前题库导出成 JSON 文本，便于备份或换设备 */
   exportBankJson: () => string | null;
+  /** 把答题情况（可带题库）打包成备份 JSON 文本；没题库且不带题库时仍会导出答题记录 */
+  exportBackupText: (opts?: { includeBank?: boolean }) => string;
+  /** 导入备份：merge 累加、replace 覆盖；结构不对会抛错（错误信息直接给用户看） */
+  importBackup: (text: string, opts?: { mode?: 'merge' | 'replace' }) => BackupImportSummary;
   clearBank: () => void;
   start: (mode: PracticeMode, opts?: { topicId?: string; ordered?: boolean }) => boolean;
   togglePick: (key: string) => void;
@@ -316,6 +322,57 @@ export const useQuiz = create<QuizState>((set, get) => {
       const index = get().index;
       if (!index) return null;
       return JSON.stringify(index.data, null, 1);
+    },
+
+    exportBackupText: (opts) => {
+      const index = get().index;
+      const includeBank = opts?.includeBank ?? true;
+      const backup = buildBackup(index?.data ?? null, get().progress, includeBank);
+      return JSON.stringify(backup, null, 1);
+    },
+
+    importBackup: (text, opts) => {
+      const backup = parseBackupText(text);
+      const mode = opts?.mode ?? 'merge';
+
+      // 先落题库：进度里的题 id 要能对上题，不然恢复出来是「已答 300 题但一道也打不开」
+      let bankImported = false;
+      let index = get().index;
+      if (backup.bank) {
+        const parsed = validateBank(backup.bank);
+        index = indexBank(parsed);
+        writeJson(BANK_KEY, parsed);
+        set({ index, importError: null });
+        bankImported = true;
+      }
+
+      const local = get().progress;
+      const progress = mode === 'replace' ? backup.progress : mergeProgress(local, backup.progress);
+      writeJson(PROGRESS_KEY, progress);
+      set({
+        progress,
+        session: progress.session,
+        current: null,
+        picked: [],
+        fillInputs: [],
+        essayInput: '',
+        essayVerdict: null,
+        submitted: false,
+        lastCorrect: null,
+        awaitingSelfAssess: false,
+      });
+      if (index && progress.session) loadCurrent(progress.session, index);
+
+      const stats = summarizeProgress(progress, index?.questions.length ?? 0);
+      return {
+        mode,
+        bankImported,
+        questionCount: stats.questionCount,
+        records: stats.answered,
+        stars: stats.stars,
+        finishedSessions: stats.finishedSessions,
+        sessionResumed: Boolean(progress.session) && progress.session === backup.progress.session,
+      };
     },
 
     clearBank: () => {

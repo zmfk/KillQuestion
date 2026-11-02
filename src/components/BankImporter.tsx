@@ -10,6 +10,7 @@ import { validateBank } from '../data/bank';
 import type { BankIndex } from '../data/bank';
 import type { BankData, Topic } from '../types';
 import { useQuiz } from '../store/quiz';
+import { downloadText } from '../utils/download';
 import styles from './BankImporter.module.css';
 
 type SlotKind = 'bank' | 'topics' | 'unknown';
@@ -151,17 +152,6 @@ function derive(
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }
-}
-
-function download(name: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 
 export function BankImporter({ compact = false }: { compact?: boolean }) {
@@ -367,7 +357,7 @@ export function BankImporter({ compact = false }: { compact?: boolean }) {
             <button
               type="button"
               className="btn"
-              onClick={() => download('KillQuestion-题库.json', JSON.stringify(built.data, null, 1))}
+              onClick={() => downloadText('KillQuestion-题库.json', JSON.stringify(built.data, null, 1))}
             >
               导出成 JSON
             </button>

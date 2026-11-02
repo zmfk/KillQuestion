@@ -216,6 +216,9 @@ export function HomePage() {
         <button type="button" className="btn" onClick={() => navigate('/import')}>
           换题库 / 补划重点
         </button>
+        <button type="button" className="btn" onClick={() => navigate('/import')}>
+          备份 / 恢复答题记录
+        </button>
       </section>
     </div>
   );
