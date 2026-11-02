@@ -49,6 +49,10 @@ export function modeLabel(mode: PracticeMode, topicTitle?: string): string {
       return '收藏夹';
     case 'exam':
       return '模拟考试';
+    case 'todo':
+      return '未完成 · 全量';
+    case 'todoKey':
+      return '未完成 · 重点';
     case 'topic':
       return topicTitle ? `考点 · ${topicTitle}` : '考点练习';
     default:
@@ -194,6 +198,13 @@ export const useQuiz = create<QuizState>((set, get) => {
         break;
       case 'star':
         ids = progress.stars.filter((id) => index.questionById.has(id));
+        break;
+      // 「还没做过」：作答记录里没有这道题（做过一次就算完成，对错不论）
+      case 'todo':
+        ids = index.allIds.filter((id) => progress.records[id] === undefined);
+        break;
+      case 'todoKey':
+        ids = index.keyIds.filter((id) => progress.records[id] === undefined);
         break;
       case 'topic':
         ids = index.questions

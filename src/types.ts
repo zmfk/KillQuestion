@@ -51,7 +51,20 @@ export interface BankData {
   questions: Question[];
 }
 
-export type PracticeMode = 'key' | 'all' | 'wrong' | 'star' | 'topic' | 'exam';
+/**
+ * 练习模式。
+ * `todo` / `todoKey` 是「还没做过」的题：按作答记录筛，做过一次（不论对错）就算完成，
+ * 和「错题重刷」（做错了还没订正）是两件事。
+ */
+export type PracticeMode =
+  | 'key'
+  | 'all'
+  | 'wrong'
+  | 'star'
+  | 'topic'
+  | 'exam'
+  | 'todo'
+  | 'todoKey';
 
 export interface ModeInfo {
   mode: PracticeMode;

@@ -18,12 +18,17 @@ export function HomePage() {
     const totalWrong = records.reduce((n, r) => n + r.wrong, 0);
     const attempts = totalRight + totalWrong;
     const total = index?.questions.length ?? 0;
+    // 「未完成」= 作答记录里没有这道题；做过一次（对错不论）就算完成
+    const todoAll = index ? index.allIds.filter((id) => progress.records[id] === undefined).length : 0;
+    const todoKey = index ? index.keyIds.filter((id) => progress.records[id] === undefined).length : 0;
     return {
       answered,
       accuracy: attempts === 0 ? 0 : Math.round((totalRight / attempts) * 100),
       wrongPending: records.filter((r) => r.wrong > r.right).length,
       starred: progress.stars.length,
       covered: total === 0 ? 0 : Math.round((answered / total) * 100),
+      todoAll,
+      todoKey,
     };
   }, [progress, index]);
 
@@ -70,6 +75,37 @@ export function HomePage() {
           </button>
         </section>
       )}
+
+      <section className={styles.todo}>
+        <div className={styles.todoHead}>
+          <strong>还没练过的题</strong>
+          <p>
+            做过一次就算完成（对错不论）；要重刷做错的题走下面的「错题重刷」。
+          </p>
+        </div>
+        <div className={styles.todoBtns}>
+          <button
+            type="button"
+            className={`btn ${stats.todoAll > 0 ? 'btnPrimary' : ''} ${styles.todoBtn}`}
+            disabled={stats.todoAll === 0}
+            onClick={() => go('todo')}
+          >
+            全量未完成
+            <span className={styles.todoCount}>{stats.todoAll > 0 ? stats.todoAll : '都练完了'}</span>
+          </button>
+          <button
+            type="button"
+            className={`btn ${styles.todoBtn}`}
+            disabled={stats.todoKey === 0}
+            onClick={() => go('todoKey')}
+          >
+            重点未完成
+            <span className={styles.todoCount}>
+              {keyTotal === 0 ? '暂无重点题' : stats.todoKey > 0 ? stats.todoKey : '都练完了'}
+            </span>
+          </button>
+        </div>
+      </section>
 
       <section className={styles.grid}>
         <button

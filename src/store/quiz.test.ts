@@ -12,8 +12,8 @@ const SHORT_ANSWER =
 
 const BANK: BankData = {
   version: 1,
-  meta: { title: '测试题库', total: 3, counters: { single: 1, multi: 1, short: 1 }, keyTotal: 3 },
-  topics: [{ id: 'k01', section: '一、示例', title: '示例考点', count: 3 }],
+  meta: { title: '测试题库', total: 3, counters: { single: 1, multi: 1, short: 1 }, keyTotal: 2 },
+  topics: [{ id: 'k01', section: '一、示例', title: '示例考点', count: 2 }],
   questions: [
     {
       id: 'Q1',
@@ -47,7 +47,8 @@ const BANK: BankData = {
       ],
       answer: ['B', 'D'],
       answerText: 'BD',
-      topicIds: ['k01'],
+      // 故意不挂考点：用来区分「全量未完成」与「重点未完成」两个池子
+      topicIds: [],
     },
     {
       id: 'Q3',
@@ -242,5 +243,78 @@ describe('简答 / 论述打字作答', () => {
       state.start('all');
       expect(useQuiz.getState().essayInput).toBe('');
     }
+  });
+});
+
+/** 把当前这道题答掉（对错不论），用来推进「未完成」池 */
+function answerCurrent(): boolean {
+  const s = useQuiz.getState();
+  const q = s.current;
+  if (!q) return false;
+  if (q.type === 'single' || q.type === 'multi' || q.type === 'judge') {
+    for (const key of q.answer ?? []) s.togglePick(key);
+  } else if (q.type === 'fill') {
+    (q.answer ?? []).forEach((answer, i) => s.setFill(i, answer.split(/[；;|/]/)[0] ?? ''));
+  } else {
+    useQuiz.getState().setEssay(q.answerText ?? SHORT_ANSWER);
+  }
+  useQuiz.getState().submit();
+  return useQuiz.getState().submitted;
+}
+
+describe('未完成题练习', () => {
+  const queueOf = () => useQuiz.getState().session?.queue ?? [];
+
+  it('全量未完成：没答过的题全在池子里', () => {
+    expect(useQuiz.getState().start('todo')).toBe(true);
+    expect(new Set(queueOf())).toEqual(new Set(['Q1', 'Q2', 'Q3']));
+  });
+
+  it('重点未完成：只有挂考点的题，非重点题不进池', () => {
+    expect(useQuiz.getState().start('todoKey')).toBe(true);
+    const queue = queueOf();
+    expect(new Set(queue)).toEqual(new Set(['Q1', 'Q3']));
+    expect(queue).not.toContain('Q2');
+  });
+
+  it('答过一题之后，那道题不再出现在未完成池里', () => {
+    useQuiz.getState().start('todo');
+    const answeredId = gotoType('single').id;
+    answerCurrent();
+    expect(useQuiz.getState().progress.records[answeredId]).toBeDefined();
+
+    useQuiz.getState().start('todo');
+    expect(queueOf()).not.toContain(answeredId);
+    expect(queueOf()).toHaveLength(2);
+
+    useQuiz.getState().start('todoKey');
+    expect(queueOf()).not.toContain(answeredId);
+    expect(queueOf()).toHaveLength(1);
+  });
+
+  it('做错的题仍算完成（要重刷走错题模式，不是「未完成」）', () => {
+    useQuiz.getState().start('todo');
+    const q = gotoType('single', 'multi');
+    // 故意选一个错项
+    const wrong = (q.options ?? []).map((o) => o.key).find((k) => !(q.answer ?? []).includes(k));
+    if (wrong) useQuiz.getState().togglePick(wrong);
+    useQuiz.getState().submit();
+    expect(useQuiz.getState().lastCorrect).toBe(false);
+
+    useQuiz.getState().start('todo');
+    expect(queueOf()).not.toContain(q.id);
+    // 但它在错题池里
+    useQuiz.getState().start('wrong');
+    expect(queueOf()).toContain(q.id);
+  });
+
+  it('全部练完之后两池都空，start 返回 false（按钮变灰）', () => {
+    for (let i = 0; i < 10; i += 1) {
+      if (!useQuiz.getState().start('todo')) break;
+      expect(answerCurrent()).toBe(true);
+    }
+    expect(useQuiz.getState().start('todo')).toBe(false);
+    expect(useQuiz.getState().start('todoKey')).toBe(false);
+    expect(Object.keys(useQuiz.getState().progress.records)).toHaveLength(3);
   });
 });

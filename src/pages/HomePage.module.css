@@ -70,6 +70,49 @@
   gap: 12px;
 }
 
+/* 「还没练过的题」：一行说明 + 全量/重点两个按钮，放在主玩法的上方 */
+.todo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.todoHead strong {
+  font-size: 14px;
+}
+
+.todoHead p {
+  color: var(--muted);
+  font-size: 12.5px;
+  margin-top: 2px;
+  line-height: 1.55;
+}
+
+.todoBtns {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.todoBtn {
+  gap: 8px;
+}
+
+.todoCount {
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  white-space: nowrap;
+}
+
 .modeCard {
   appearance: none;
   text-align: left;
@@ -226,5 +269,12 @@
   .resume {
     flex-direction: column;
     align-items: stretch;
+  }
+  .todo {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .todoBtns .btn {
+    flex: 1;
   }
 }
