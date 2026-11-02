@@ -69,6 +69,9 @@ export type PracticeMode =
   | 'todo'
   | 'todoKey';
 
+/** 一场考试的题量配比：六种题型各出几道，0 表示这一场不出该题型 */
+export type ExamPlan = Record<QuestionType, number>;
+
 export interface ModeInfo {
   mode: PracticeMode;
   topicId?: string;
@@ -102,6 +105,8 @@ export interface Session {
   startedAt: number;
   /** 考试模式才有倒计时截止时间 */
   endsAt: number | null;
+  /** 考试模式记下这一场的题型配比，「再来一轮」和备份恢复都照它复原 */
+  plan?: ExamPlan;
 }
 
 export interface Progress {

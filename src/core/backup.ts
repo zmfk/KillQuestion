@@ -6,6 +6,7 @@
  *
  * 这里只做纯数据：不碰 DOM、不读写 localStorage，由 store 决定写到哪、页面决定怎么下载。
  */
+import { readPlan } from './examPlan';
 import type { BankData, Progress, QuestionRecord, Session } from '../types';
 
 export const BACKUP_APP = 'killquestion';
@@ -127,6 +128,7 @@ function normalizeSession(raw: unknown): Session | null {
   const index = Number(raw.index);
   if (!Number.isFinite(index) || index < 0) return null;
   const results = Array.isArray(raw.results) ? raw.results : [];
+  const plan = readPlan(raw.plan);
   return {
     mode: mode as Session['mode'],
     topicId: typeof raw.topicId === 'string' ? raw.topicId : undefined,
@@ -143,6 +145,8 @@ function normalizeSession(raw: unknown): Session | null {
     })),
     startedAt: Number(raw.startedAt) || 0,
     endsAt: raw.endsAt === null || raw.endsAt === undefined ? null : Number(raw.endsAt) || null,
+    // 考试卷的题型配比：备份恢复后「再来一轮」还按同一套题量出
+    ...(plan ? { plan } : {}),
   };
 }
 

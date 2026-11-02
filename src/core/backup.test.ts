@@ -186,6 +186,36 @@ describe('normalizeProgress', () => {
     expect(normalized.session).toMatchObject({ mode: 'todoKey', index: 0, endsAt: null });
   });
 
+  it('考试卷的题型配比跟着 session 一起恢复', () => {
+    const normalized = normalizeProgress({
+      records: {},
+      session: {
+        mode: 'exam',
+        queue: ['Q1'],
+        index: 0,
+        startedAt: 5,
+        plan: { fill: '3', single: 2.7, multi: -1, judge: 0, short: 1 },
+      },
+    });
+    expect(normalized.session?.plan).toEqual({
+      fill: 3,
+      single: 2,
+      multi: 0,
+      judge: 0,
+      short: 1,
+      essay: 0,
+    });
+  });
+
+  it('配比字段乱写就当没有，恢复时退回默认', () => {
+    const normalized = normalizeProgress({
+      records: {},
+      session: { mode: 'exam', queue: ['Q1'], index: 0, startedAt: 5, plan: '不是对象' },
+    });
+    expect(normalized.session).not.toBeNull();
+    expect(normalized.session?.plan).toBeUndefined();
+  });
+
   it('完全不是对象时给空进度', () => {
     expect(normalizeProgress(null)).toMatchObject({ records: {}, stars: [], finishedSessions: 0 });
   });

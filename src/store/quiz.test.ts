@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { emptyPlan } from '../core/examPlan';
 import { useQuiz } from './quiz';
 import type { BankData, Question } from '../types';
 
@@ -343,6 +344,62 @@ describe('考试卷（全题 / 重点）', () => {
   it('非考试模式没有倒计时', () => {
     useQuiz.getState().start('all');
     expect(sessionOf().endsAt).toBeNull();
+  });
+});
+
+describe('考试配比可调', () => {
+  const sessionOf = () => useQuiz.getState().session!;
+
+  it('按填的题型数量组卷，填 0 的题型一道不出', () => {
+    expect(
+      useQuiz.getState().start('exam', {
+        plan: { fill: 0, single: 1, multi: 0, judge: 0, short: 0, essay: 0 },
+      }),
+    ).toBe(true);
+    expect(sessionOf().queue).toEqual(['Q1']);
+    expect(sessionOf().plan).toEqual({ fill: 0, single: 1, multi: 0, judge: 0, short: 0, essay: 0 });
+  });
+
+  it('填得比库存多只出库存那么多', () => {
+    expect(
+      useQuiz.getState().start('exam', {
+        plan: { fill: 99, single: 99, multi: 99, judge: 99, short: 99, essay: 99 },
+      }),
+    ).toBe(true);
+    // 题库只有 3 道题，配比要得再多也抽不出多余的题
+    expect(sessionOf().queue).toEqual(['Q1', 'Q2', 'Q3']);
+  });
+
+  it('全填 0 就开不了考，不会跳进空练习', () => {
+    expect(useQuiz.getState().start('exam', { plan: emptyPlan() })).toBe(false);
+    expect(useQuiz.getState().session).toBeNull();
+  });
+
+  it('重点考试同样按配比出卷，非重点题照样被拦在外面', () => {
+    expect(
+      useQuiz.getState().start('examKey', {
+        plan: { fill: 0, single: 1, multi: 1, judge: 0, short: 1, essay: 0 },
+      }),
+    ).toBe(true);
+    expect(sessionOf().queue).toEqual(['Q1', 'Q3']);
+  });
+
+  it('配比存在本机，下次开考直接沿用', () => {
+    useQuiz.getState().setExamPlan({ fill: 0, single: 1, multi: 0, judge: 0, short: 1, essay: 0 });
+    expect(useQuiz.getState().examPlan).toMatchObject({ short: 1 });
+    expect(JSON.parse(localStorage.getItem('killquestion.examplan.v1') ?? 'null')).toMatchObject({
+      short: 1,
+    });
+
+    useQuiz.getState().start('exam');
+    expect(sessionOf().plan).toEqual({ fill: 0, single: 1, multi: 0, judge: 0, short: 1, essay: 0 });
+    expect(sessionOf().queue).toEqual(['Q1', 'Q3']);
+  });
+
+  it('非考试模式不看配比，也不会在会话里记配比', () => {
+    expect(useQuiz.getState().start('all', { plan: emptyPlan() })).toBe(true);
+    expect(useQuiz.getState().session?.queue).toHaveLength(3);
+    expect(useQuiz.getState().session?.plan).toBeUndefined();
   });
 });
 

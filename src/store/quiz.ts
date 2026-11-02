@@ -3,18 +3,26 @@ import { gradeEssayAnswer } from '../core/answerMatch';
 import type { EssayVerdict } from '../core/answerMatch';
 import { buildBackup, mergeProgress, parseBackupText, summarizeProgress } from '../core/backup';
 import type { BackupImportSummary } from '../core/backup';
+import { clampPlan, countsByType, DEFAULT_EXAM_PLAN, normalizePlan } from '../core/examPlan';
 import { autoGrade } from '../core/grade';
 import { mulberry32 } from '../core/rng';
 import { freshSeed, shuffle, shuffleChoiceOptions } from '../core/shuffle';
 import { indexBank, validateBank } from '../data/bank';
 import type { BankIndex } from '../data/bank';
-import type { BankData, PracticeMode, Progress, Question, ResultItem, Session } from '../types';
+import type {
+  BankData,
+  ExamPlan,
+  PracticeMode,
+  Progress,
+  Question,
+  ResultItem,
+  Session,
+} from '../types';
 
 const PROGRESS_KEY = 'killquestion.progress.v1';
 const BANK_KEY = 'killquestion.bank.v1';
+const PLAN_KEY = 'killquestion.examplan.v1';
 const EXAM_MINUTES = 60;
-/** 考试卷按原卷结构配比抽题（附件 3 的试题结构含判断题，分值未公布，按常见卷面配） */
-const EXAM_PLAN: Record<string, number> = { fill: 10, single: 20, multi: 1, judge: 10, short: 3, essay: 3 };
 
 function emptyProgress(): Progress {
   return { records: {}, stars: [], session: null, finishedSessions: 0, lastStudyAt: null };
@@ -86,6 +94,8 @@ interface QuizState {
   awaitingSelfAssess: boolean;
   /** 简答 / 论述的自动对照结果；没答案或没写东西时为 null（走自评） */
   essayVerdict: EssayVerdict | null;
+  /** 上次用过的考试配比（存在本机，开始考试前可以逐题型改） */
+  examPlan: ExamPlan;
   booted: boolean;
 
   boot: () => void;
@@ -99,7 +109,12 @@ interface QuizState {
   /** 导入备份：merge 累加、replace 覆盖；结构不对会抛错（错误信息直接给用户看） */
   importBackup: (text: string, opts?: { mode?: 'merge' | 'replace' }) => BackupImportSummary;
   clearBank: () => void;
-  start: (mode: PracticeMode, opts?: { topicId?: string; ordered?: boolean }) => boolean;
+  start: (
+    mode: PracticeMode,
+    opts?: { topicId?: string; ordered?: boolean; plan?: ExamPlan },
+  ) => boolean;
+  /** 记下考试配比（下次开考直接沿用，存在本机） */
+  setExamPlan: (plan: ExamPlan) => void;
   togglePick: (key: string) => void;
   setFill: (index: number, value: string) => void;
   setEssay: (text: string) => void;
@@ -194,6 +209,7 @@ export const useQuiz = create<QuizState>((set, get) => {
     progress: Progress,
     topicId: string | undefined,
     ordered: boolean,
+    plan: ExamPlan,
   ): string[] => {
     let ids: string[];
     switch (mode) {
@@ -240,11 +256,15 @@ export const useQuiz = create<QuizState>((set, get) => {
         break;
       case 'exam':
       case 'examKey': {
-        // 同一套卷面配比；重点考试只在划重点的题里抽，某题型重点题不够就按实际数量出
-        const keyIds = mode === 'examKey' ? new Set(index.keyIds) : null;
+        // 同一套题量配比；重点考试只在划重点的题里抽，某题型不够就按实际数量出
+        const keyOnly = mode === 'examKey';
+        const keyIds = keyOnly ? new Set(index.keyIds) : null;
+        // 用户可能把某题型填得比库存还多：按库存钳一遍，卷子题量以实际抽到的为准
+        const wanted = clampPlan(plan, countsByType(index.questions, keyOnly));
         const rng = mulberry32(Date.now() >>> 0);
         const picked: string[] = [];
-        for (const [type, count] of Object.entries(EXAM_PLAN)) {
+        for (const [type, count] of Object.entries(wanted)) {
+          if (count <= 0) continue;
           const bucket = index.questions
             .filter((q) => q.type === type && (keyIds === null || keyIds.has(q.id)))
             .map((q) => q.id);
@@ -282,10 +302,12 @@ export const useQuiz = create<QuizState>((set, get) => {
     awaitingSelfAssess: false,
     essayVerdict: null,
     booted: false,
+    examPlan: DEFAULT_EXAM_PLAN,
 
     boot: () => {
       if (get().booted) return;
       const progress = { ...emptyProgress(), ...(readJson<Progress>(PROGRESS_KEY) ?? {}) };
+      const examPlan = normalizePlan(readJson<ExamPlan>(PLAN_KEY) ?? DEFAULT_EXAM_PLAN);
       const rawBank = readJson<BankData>(BANK_KEY);
       let index: BankIndex | null = null;
       if (rawBank) {
@@ -295,7 +317,7 @@ export const useQuiz = create<QuizState>((set, get) => {
           index = null;
         }
       }
-      set({ progress, index, booted: true });
+      set({ progress, index, examPlan, booted: true });
       if (index && progress.session) {
         set({ session: progress.session });
         loadCurrent(progress.session, index);
@@ -423,7 +445,17 @@ export const useQuiz = create<QuizState>((set, get) => {
       const index = get().index;
       if (!index) return false;
       const topicId = opts?.topicId;
-      const pool = buildPool(mode, index, get().progress, topicId, opts?.ordered ?? isExamMode(mode));
+      const exam = isExamMode(mode);
+      // 考试按用户给的配比组卷（没给就用上次存的那套），非考试模式不看配比
+      const plan = exam ? normalizePlan(opts?.plan ?? get().examPlan) : DEFAULT_EXAM_PLAN;
+      const pool = buildPool(
+        mode,
+        index,
+        get().progress,
+        topicId,
+        opts?.ordered ?? exam,
+        plan,
+      );
       if (pool.length === 0) return false;
       const topicTitle = topicId ? index.topicById.get(topicId)?.title : undefined;
       const session: Session = {
@@ -434,11 +466,18 @@ export const useQuiz = create<QuizState>((set, get) => {
         index: 0,
         results: [],
         startedAt: Date.now(),
-        endsAt: isExamMode(mode) ? Date.now() + EXAM_MINUTES * 60_000 : null,
+        endsAt: exam ? Date.now() + EXAM_MINUTES * 60_000 : null,
+        ...(exam ? { plan } : {}),
       };
       saveSession(session);
       loadCurrent(session, index);
       return true;
+    },
+
+    setExamPlan: (plan) => {
+      const normalized = normalizePlan(plan);
+      writeJson(PLAN_KEY, normalized);
+      set({ examPlan: normalized });
     },
 
     togglePick: (key) => {

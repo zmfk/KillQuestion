@@ -99,7 +99,7 @@ export function ResultPage() {
           type="button"
           className="btn btnPrimary"
           onClick={() => {
-            start(session.mode, { topicId: session.topicId });
+            start(session.mode, { topicId: session.topicId, plan: session.plan });
             navigate('/practice');
           }}
         >

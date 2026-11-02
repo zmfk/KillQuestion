@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ExamSetup } from '../components/ExamSetup';
 import { ImportPanel } from '../components/ImportPanel';
 import { useQuiz } from '../store/quiz';
 import styles from './HomePage.module.css';
+import type { ExamPlan } from '../types';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -10,6 +12,9 @@ export function HomePage() {
   const progress = useQuiz((s) => s.progress);
   const session = useQuiz((s) => s.session);
   const start = useQuiz((s) => s.start);
+  const setExamPlan = useQuiz((s) => s.setExamPlan);
+  /** 正在调配比的那张考试卡；null 时面板收起 */
+  const [examSetup, setExamSetup] = useState<'exam' | 'examKey' | null>(null);
 
   const stats = useMemo(() => {
     const records = Object.values(progress.records);
@@ -45,6 +50,13 @@ export function HomePage() {
 
   const go = (mode: Parameters<typeof start>[0], opts?: Parameters<typeof start>[1]) => {
     if (start(mode, opts)) navigate('/practice');
+  };
+
+  /** 从面板开考：先记下这套配比（下次沿用），再按它组卷 */
+  const startExam = (mode: 'exam' | 'examKey', plan: ExamPlan) => {
+    setExamPlan(plan);
+    setExamSetup(null);
+    go(mode, { plan });
   };
 
   return (
@@ -111,6 +123,15 @@ export function HomePage() {
         </div>
       </section>
 
+      {examSetup && (
+        <ExamSetup
+          key={examSetup}
+          mode={examSetup}
+          onClose={() => setExamSetup(null)}
+          onStart={startExam}
+        />
+      )}
+
       <section className={styles.grid}>
         <button
           type="button"
@@ -147,11 +168,11 @@ export function HomePage() {
           <span className={styles.modeArrow}>→</span>
         </button>
 
-        <button type="button" className={styles.modeCard} onClick={() => go('exam')}>
+        <button type="button" className={styles.modeCard} onClick={() => setExamSetup('exam')}>
           <span className={styles.modeIcon}>⏱</span>
           <span className={styles.modeBody}>
             <strong>全题考试</strong>
-            <small>按真实卷面配比从全部 {total} 道题里组卷，60 分钟计时</small>
+            <small>从全部 {total} 道题里按配比组卷，题数可以逐题型调，60 分钟计时</small>
           </span>
           <span className={styles.modeArrow}>→</span>
         </button>
@@ -159,7 +180,7 @@ export function HomePage() {
         <button
           type="button"
           className={styles.modeCard}
-          onClick={() => (keyTotal > 0 ? go('examKey') : navigate('/import'))}
+          onClick={() => (keyTotal > 0 ? setExamSetup('examKey') : navigate('/import'))}
           disabled={keyTotal === 0}
         >
           <span className={`${styles.modeIcon} ${styles.modeIconTight}`}>⏱★</span>
@@ -167,7 +188,7 @@ export function HomePage() {
             <strong>重点考试</strong>
             <small>
               {keyTotal > 0
-                ? `同一套卷面配比，只在 ${keyTotal} 道重点题里抽；某题型不够就按实际数量出`
+                ? `只在 ${keyTotal} 道重点题里抽，题数同样可调；某题型不够就按库存出`
                 : '还没导入划重点——拖一份进来才有重点卷'}
             </small>
           </span>
