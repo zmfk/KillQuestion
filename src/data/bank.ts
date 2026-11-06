@@ -1,5 +1,5 @@
 import { normalizeJudge } from '../core/grade';
-import type { BankData, KeyOverrides, Question, Topic } from '../types';
+import type { BankData, KeyOverrides, Option, Question, Topic } from '../types';
 
 /**
  * 题库运行时索引。题库不打包进仓库，由用户导入后存在本机，
@@ -47,6 +47,37 @@ export function indexBank(data: BankData, overrides?: KeyOverrides): BankIndex {
 
 const TYPES = new Set(['single', 'multi', 'judge', 'fill', 'short', 'essay']);
 
+/**
+ * 答案字段规范化。生成题库（AI 转 JSON、OCR、旧版导出）里常见这些写法：
+ * `"answer": "xxx"`（字符串）、`"answer": [""]`、`"answer"` 缺失、`"answer": null`。
+ * 统一成「字符串数组」，否则后面判分、选项映射、背题稿各拿各的形态。
+ */
+function normalizeAnswerList(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.map((item) => String(item ?? '')).filter((text) => text !== '');
+  }
+  if (typeof raw === 'string') {
+    const text = raw.trim();
+    return text === '' ? [] : [text];
+  }
+  return [];
+}
+
+/** 选项规范化：只认 {key,text} 形状，缺 key 时按位置补 A、B、C… */
+function normalizeOptions(raw: unknown): Option[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((opt) => opt && typeof opt === 'object')
+    .map((opt, i) => {
+      const item = opt as Partial<Option>;
+      return {
+        key: String(item.key ?? String.fromCharCode(65 + Math.min(i, 25))),
+        text: String(item.text ?? ''),
+      };
+    })
+    .filter((opt) => opt.text !== '');
+}
+
 /** 导入前校验：结构不对就直接报错，别把半截数据写进本机。 */
 export function validateBank(raw: unknown): BankData {
   if (typeof raw !== 'object' || raw === null) throw new Error('文件不是 JSON 对象');
@@ -64,6 +95,15 @@ export function validateBank(raw: unknown): BankData {
       throw new Error(`${q.id} 缺少题干`);
     }
     if (!Array.isArray(q.topicIds)) q.topicIds = [];
+    q.answer = normalizeAnswerList(q.answer);
+    // answerText 是判分和「参考答案」展示的主来源，缺了就用 answer 拼一份
+    if (typeof q.answerText !== 'string') q.answerText = q.answer.join('；');
+    if (q.type === 'single' || q.type === 'multi') q.options = normalizeOptions(q.options);
+    // 填空题的空位数：缺失 / 非正数时按答案条数兜底，保证答题页至少有一个输入框
+    if (q.type === 'fill') {
+      const blanks = Math.floor(Number(q.blanks));
+      q.blanks = Number.isFinite(blanks) && blanks > 0 ? blanks : Math.max(1, q.answer.length);
+    }
     // 判断题的答案写法很杂（√ / 对 / T / 正确），导入时统一成「正确 / 错误」，
     // 免得背题稿、题库页、判分各认一套。认不出来的原样留着，判分时按「需自评」处理。
     if (q.type === 'judge') {

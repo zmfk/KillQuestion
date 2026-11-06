@@ -4,7 +4,7 @@ import type { EssayVerdict } from '../core/answerMatch';
 import { buildBackup, mergeProgress, parseBackupText, summarizeProgress } from '../core/backup';
 import type { BackupImportSummary } from '../core/backup';
 import { clampPlan, countsByType, DEFAULT_EXAM_PLAN, normalizePlan } from '../core/examPlan';
-import { autoGrade } from '../core/grade';
+import { autoGrade, hasReferenceAnswer } from '../core/grade';
 import { mulberry32 } from '../core/rng';
 import { freshSeed, shuffle, shuffleChoiceOptions } from '../core/shuffle';
 import { indexBank, validateBank, withKeyOverrides } from '../data/bank';
@@ -154,6 +154,23 @@ export const useQuiz = create<QuizState>((set, get) => {
   };
 
   /**
+   * 会话的 queue 里可能残留旧题库的题 id（换题库、合并备份、旧版本数据都会碰到）。
+   * 不清理的话：loadCurrent 找不到题 → current 为 null → 页面「没有进行中的练习」，
+   * 回首页点「接着刷」又回到同一题，来回死循环。这里剔掉不存在的 id，并按位置重算进度。
+   */
+  const sanitizeSession = (session: Session | null, index: BankIndex | null): Session | null => {
+    if (!session || !index) return session;
+    const queue = Array.isArray(session.queue) ? session.queue : [];
+    const known = queue.filter((id) => index.questionById.has(id));
+    if (known.length === queue.length) return session;
+    if (known.length === 0) return null;
+    const passed = queue
+      .slice(0, Math.max(0, Math.min(session.index ?? 0, queue.length)))
+      .filter((id) => index.questionById.has(id)).length;
+    return { ...session, queue: known, index: Math.min(passed, known.length) };
+  };
+
+  /**
    * 出一道题前的「上桌版」：选择题的选项每次重新打乱，字母按新位置重编，答案同步。
    * 返回的是副本，题库索引里的原题（背题稿、题库页、导出）保持原顺序不动。
    */
@@ -170,13 +187,20 @@ export const useQuiz = create<QuizState>((set, get) => {
     }
     const q = index.questionById.get(session.queue[session.index]) ?? null;
     const shown = q ? presentQuestion(q) : null;
+    // 填空至少给一个输入框：题库缺答案 / 缺 blanks 时如果按 0 个渲染，
+    // 页面上没有可填的地方，提交按钮点了也不动，整轮练习就卡死在这一题。
+    const fillCount =
+      shown && shown.type === 'fill'
+        ? Math.max(
+            1,
+            Number.isFinite(Number(shown.blanks)) ? Math.floor(Number(shown.blanks)) : 0,
+            Array.isArray(shown.answer) ? shown.answer.length : 0,
+          )
+        : 0;
     set({
       current: shown,
       picked: [],
-      fillInputs:
-        shown && shown.type === 'fill'
-          ? new Array(shown.blanks ?? shown.answer?.length ?? 1).fill('')
-          : [],
+      fillInputs: new Array(fillCount).fill(''),
       essayInput: '',
       essayVerdict: null,
       submitted: false,
@@ -331,9 +355,16 @@ export const useQuiz = create<QuizState>((set, get) => {
         }
       }
       set({ progress, index, examPlan, booted: true });
-      if (index && progress.session) {
-        set({ session: progress.session });
-        loadCurrent(progress.session, index);
+      // 旧题库留下的会话先清洗一遍：queue 里对不上现在题库的 id 全部剔掉
+      const session = sanitizeSession(progress.session, index);
+      if (session !== progress.session) {
+        const repaired = { ...progress, session };
+        writeJson(PROGRESS_KEY, repaired);
+        set({ progress: repaired });
+      }
+      if (index && session) {
+        set({ session });
+        loadCurrent(session, index);
       }
     },
 
@@ -342,9 +373,11 @@ export const useQuiz = create<QuizState>((set, get) => {
         const parsed = validateBank(JSON.parse(text));
         const progress = { ...emptyProgress(), ...(readJson<Progress>(PROGRESS_KEY) ?? {}) };
         const index = indexBank(parsed, progress.keyOverrides);
+        const session = sanitizeSession(progress.session, index);
         writeJson(BANK_KEY, parsed);
-        set({ index, importError: null, progress, session: progress.session });
-        if (progress.session) loadCurrent(progress.session, index);
+        if (session !== progress.session) writeJson(PROGRESS_KEY, { ...progress, session });
+        set({ index, importError: null, progress: { ...progress, session }, session });
+        if (session) loadCurrent(session, index);
       } catch (err) {
         set({
           importError: err instanceof Error ? err.message : String(err),
@@ -357,15 +390,17 @@ export const useQuiz = create<QuizState>((set, get) => {
         const parsed = validateBank(data);
         // 换题库时按旧 id 记的错题/收藏/重点调整都会张冠李戴，默认一起清掉
         const keep = opts?.keepProgress ? readJson<Progress>(PROGRESS_KEY) : null;
-        const progress = keep ? { ...emptyProgress(), ...keep } : emptyProgress();
-        const index = indexBank(parsed, progress.keyOverrides);
+        const base = keep ? { ...emptyProgress(), ...keep } : emptyProgress();
+        const index = indexBank(parsed, base.keyOverrides);
+        const session = sanitizeSession(base.session, index);
+        const progress = session === base.session ? base : { ...base, session };
         writeJson(BANK_KEY, parsed);
         writeJson(PROGRESS_KEY, progress);
         set({
           index,
           importError: null,
           progress,
-          session: progress.session,
+          session,
           current: null,
           submitted: false,
           lastCorrect: null,
@@ -373,7 +408,7 @@ export const useQuiz = create<QuizState>((set, get) => {
           essayInput: '',
           essayVerdict: null,
         });
-        if (progress.session) loadCurrent(progress.session, index);
+        if (session) loadCurrent(session, index);
       } catch (err) {
         set({ importError: err instanceof Error ? err.message : String(err) });
       }
@@ -414,10 +449,14 @@ export const useQuiz = create<QuizState>((set, get) => {
         set({ index, importError: null });
       }
 
-      writeJson(PROGRESS_KEY, progress);
+      // 备份里的会话可能指向题库里没有的题：先清洗，别让「接着刷」卡在一道不存在的题上
+      const session = sanitizeSession(progress.session, index);
+      const repaired = session === progress.session ? progress : { ...progress, session };
+
+      writeJson(PROGRESS_KEY, repaired);
       set({
-        progress,
-        session: progress.session,
+        progress: repaired,
+        session,
         current: null,
         picked: [],
         fillInputs: [],
@@ -427,7 +466,7 @@ export const useQuiz = create<QuizState>((set, get) => {
         lastCorrect: null,
         awaitingSelfAssess: false,
       });
-      if (index && progress.session) loadCurrent(progress.session, index);
+      if (index && session) loadCurrent(session, index);
 
       const stats = summarizeProgress(progress, index?.questions.length ?? 0);
       return {
@@ -437,7 +476,7 @@ export const useQuiz = create<QuizState>((set, get) => {
         records: stats.answered,
         stars: stats.stars,
         finishedSessions: stats.finishedSessions,
-        sessionResumed: Boolean(progress.session) && progress.session === backup.progress.session,
+        sessionResumed: Boolean(session) && session === backup.progress.session,
       };
     },
 
@@ -523,13 +562,6 @@ export const useQuiz = create<QuizState>((set, get) => {
     submit: () => {
       const { current, picked, fillInputs, essayInput, submitted } = get();
       if (!current || submitted) return;
-      if (
-        (current.type === 'single' || current.type === 'multi' || current.type === 'judge') &&
-        picked.length === 0
-      ) {
-        return;
-      }
-      if (current.type === 'fill' && fillInputs.every((v) => v.trim() === '')) return;
 
       // 简答 / 论述：有输入且题库有参考答案时按要点对照判，否则退回复习自评
       if (current.type === 'short' || current.type === 'essay') {
@@ -540,6 +572,27 @@ export const useQuiz = create<QuizState>((set, get) => {
         }
         mark(current.id, verdict.correct, [essayInput.trim().slice(0, 4000)], verdict.score);
         set({ essayVerdict: verdict });
+        return;
+      }
+
+      // 题库没给答案的题：作答不是必需的（用户本来也没有可对照的东西），
+      // 交了就看答案 + 自评，不再因为「没东西可交」把页面卡死。
+      const hasKey = hasReferenceAnswer(current);
+      if (hasKey) {
+        const isChoiceLike =
+          current.type === 'single' || current.type === 'multi' || current.type === 'judge';
+        if (isChoiceLike && picked.length === 0 && (current.options?.length ?? 0) > 0) return;
+        if (current.type === 'fill' && fillInputs.length > 0 && fillInputs.every((v) => v.trim() === '')) {
+          return;
+        }
+      }
+
+      // 选择题没解析出选项：页面上没有可点的字母，直接进「看答案 + 自评」
+      if (
+        (current.type === 'single' || current.type === 'multi') &&
+        (current.options?.length ?? 0) === 0
+      ) {
+        set({ submitted: true, awaitingSelfAssess: true, lastCorrect: null });
         return;
       }
 

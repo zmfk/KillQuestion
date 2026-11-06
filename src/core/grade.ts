@@ -84,30 +84,60 @@ export function gradeJudge(question: Question, picked: readonly string[]): boole
 }
 
 /**
- * 填空题：逐个空比对。空数与答案数不一致时，多的空按漏答算错。
- * 返回是否全对。
+ * 题库里这道题有没有能拿来判分的参考答案。
+ *
+ * 生成题库（AI 转 JSON、OCR、残缺的 PDF）里出现「题在、答案空」很常见，
+ * 这种题不该被判错，也不该让页面卡在「没东西可提交」上——统一退回自评。
+ * 注意 answer 可能是字符串等脏数据（导入时会被 normalize），这里一律防御性读取。
+ */
+export function hasReferenceAnswer(question: Question): boolean {
+  const list = Array.isArray(question.answer) ? question.answer : [];
+  switch (question.type) {
+    case 'single':
+    case 'multi':
+      return list.some((key) => String(key ?? '').trim() !== '');
+    case 'fill':
+      return list.some((text) => String(text ?? '').trim() !== '');
+    case 'judge':
+      return (
+        normalizeJudge(list[0] ?? '') !== null || normalizeJudge(question.answerText ?? '') !== null
+      );
+    case 'short':
+    case 'essay':
+      return (question.answerText ?? '').trim() !== '' || list.join('').trim() !== '';
+    default:
+      return false;
+  }
+}
+
+/**
+ * 填空题：逐个空比对。
+ * 只判「题库给了答案的空」：某个空没给答案（空串 / 只有标点）就不参与判定，
+ * 免得一份缺答案的题库把用户判成满盘皆错。答案项比输入多时，缺的那些按漏答算错。
  */
 export function gradeFill(question: Question, inputs: readonly string[]): boolean {
-  const answers = question.answer ?? [];
-  if (answers.length === 0) return false;
-  const count = Math.max(answers.length, inputs.length);
-  if (count === 0) return false;
-  for (let i = 0; i < count; i += 1) {
-    const accepts = splitAccepts(answers[i] ?? '');
+  const answers = Array.isArray(question.answer) ? question.answer : [];
+  let judged = 0;
+  for (let i = 0; i < answers.length; i += 1) {
+    const accepts = splitAccepts(String(answers[i] ?? ''));
+    if (accepts.length === 0) continue;
+    judged += 1;
     if (!gradeBlank(accepts, inputs[i] ?? '')) return false;
   }
-  return true;
+  return judged > 0;
 }
 
 /**
  * 自动判分入口。简答、论述返回 null，表示「需要用户自评」；
- * 判断题答案读不懂时也返回 null（题干原文没给答案的情况），同样交给自评。
+ * 判断题答案读不懂、选择 / 填空题库没给答案时也返回 null，同样交给自评。
  */
 export function autoGrade(question: Question, picked: readonly string[]): boolean | null {
+  // 没有参考答案就别硬判：判错会把一道没答案的题永远记成错题
+  if (!hasReferenceAnswer(question)) return null;
   switch (question.type) {
     case 'single':
     case 'multi':
-      return gradeChoice(question.answer ?? [], picked);
+      return gradeChoice(Array.isArray(question.answer) ? question.answer : [], picked);
     case 'judge':
       if (normalizeJudge(question.answer?.[0] ?? '') === null) return null;
       return gradeJudge(question, picked);

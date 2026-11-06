@@ -262,7 +262,7 @@ export function PracticePage() {
                   />
                   {submitted && (
                     <span className={correctOne ? styles.fillOk : styles.fillMiss}>
-                      参考答案：{answer || '—'}
+                      参考答案：{answer || '（题库未给）'}
                     </span>
                   )}
                 </label>
@@ -323,7 +323,18 @@ export function PracticePage() {
           </>
         )}
 
-        {submitted && isChoice && (
+        {submitted && awaitingSelfAssess && !isEssay && (
+          <div className={styles.answerBox}>
+            <span className={styles.answerLabel}>没有参考答案</span>
+            <p>
+              {current.answerText?.trim() ||
+                (current.answer ?? []).join('；') ||
+                '这道题的题库里没给答案（生成题库缺答案时很常见）。按你自己的笔记判断掌握了没有，选下面的按钮就行，不会记成错题。'}
+            </p>
+          </div>
+        )}
+
+        {submitted && isChoice && !awaitingSelfAssess && (
           <div className={`${styles.verdict} ${lastCorrect ? styles.verdictOk : styles.verdictBad}`}>
             <strong>{lastCorrect ? '答对了' : '答错了'}</strong>
             <span>
@@ -352,7 +363,7 @@ export function PracticePage() {
           </div>
         )}
 
-        {submitted && isFill && lastCorrect !== null && (
+        {submitted && isFill && lastCorrect !== null && !awaitingSelfAssess && (
           <div className={`${styles.verdict} ${lastCorrect ? styles.verdictOk : styles.verdictBad}`}>
             <strong>{lastCorrect ? '全对' : '有错'}</strong>
             <span>
@@ -368,9 +379,18 @@ export function PracticePage() {
             type="button"
             className="btn btnPrimary"
             onClick={submit}
-            disabled={(isChoice || isJudge) && picked.length === 0}
+            disabled={
+              isChoice && (current.options?.length ?? 0) > 0 && picked.length === 0
+            }
           >
             {isEssay ? '交卷对照答案' : '提交答案'}
+          </button>
+        )}
+
+        {/* 兜底出口：任何题（包括结构残缺、没有选项、没答案的）都能跳过，不至于卡死在一题上 */}
+        {!submitted && (
+          <button type="button" className="btn btnGhost" onClick={handleNext}>
+            跳过这题
           </button>
         )}
 
